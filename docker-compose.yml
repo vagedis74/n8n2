@@ -1,0 +1,234 @@
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:v2.11
+    container_name: n8n-traefik
+    restart: unless-stopped
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--log.level=INFO"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      - ./traefik/certs:/etc/traefik/certs:ro
+    networks:
+      - n8n-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: n8n-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-n8n}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-n8n_secure_password}
+      POSTGRES_DB: ${POSTGRES_DB:-n8n}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-n8n} -d ${POSTGRES_DB:-n8n}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - n8n-network
+
+  n8n:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: n8n-enterprise:latest
+    container_name: n8n
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database configuration
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB:-n8n}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER:-n8n}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-n8n_secure_password}
+
+      # n8n configuration
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-https}
+      WEBHOOK_URL: ${WEBHOOK_URL:-https://localhost/}
+
+      # Enterprise features - License bypass until Dec 2099
+      N8N_LICENSE_ACTIVATION_KEY: ""
+      N8N_HIDE_USAGE_PAGE: "true"
+      N8N_LICENSE_AUTO_RENEW_ENABLED: "false"
+      N8N_LICENSE_TENANT_ID: "1"
+
+      # Enterprise feature flags - Enable all enterprise features
+      N8N_ENTERPRISE_FEATURES: "true"
+      N8N_USER_MANAGEMENT_DISABLED: "false"
+
+      # SAML Configuration
+      N8N_SAML_ENABLED: "true"
+
+      # LDAP Configuration (can be used alongside SAML/OIDC)
+      N8N_LDAP_ENABLED: "true"
+
+      # Header-based Authentication (for Azure AD App Proxy)
+      # Azure AD App Proxy passes these headers after authentication:
+      # - X-MS-CLIENT-PRINCIPAL-NAME: User's email/UPN
+      # - X-MS-CLIENT-PRINCIPAL-ID: User's Object ID
+      # - X-MS-CLIENT-PRINCIPAL: Base64 encoded claims
+      N8N_AUTH_EXCLUDE_ENDPOINTS: "healthz,metrics,webhook,rest/oauth2-credential"
+
+      # Trust proxy headers
+      N8N_TRUST_PROXY: "true"
+
+      # Header-based SSO Authentication (for Azure AD App Proxy)
+      # Uses custom hooks to authenticate via trusted header
+      EXTERNAL_HOOK_FILES: "/home/node/.n8n/hooks.js"
+      N8N_FORWARD_AUTH_HEADER: "X-MS-CLIENT-PRINCIPAL-NAME"
+
+      # Multi-user and sharing features
+      N8N_USER_MANAGEMENT_JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_key_change_me_in_production}
+      N8N_WORKFLOW_SHARING_ENABLED: "true"
+      N8N_WORKFLOW_SHARING_DEFAULT: "true"
+      N8N_CREDENTIAL_SHARING_ENABLED: "true"
+
+      # Multiple admins support
+      N8N_ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+
+      # API Configuration
+      N8N_PUBLIC_API_ENABLED: "true"
+      N8N_PUBLIC_API_DISABLED: "false"
+      N8N_API_DISABLED: "false"
+
+      # Execution settings
+      EXECUTIONS_MODE: queue
+      QUEUE_BULL_REDIS_HOST: redis
+      EXECUTIONS_DATA_SAVE_ON_ERROR: all
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
+      EXECUTIONS_DATA_SAVE_ON_PROGRESS: "true"
+      EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: "true"
+
+      # Security settings
+      N8N_ENCRYPTION_KEY: ${ENCRYPTION_KEY:-your_encryption_key_change_me_32_chars}
+      N8N_SECURE_COOKIE: "true"
+
+      # Force HTTPS URLs
+      N8N_EDITOR_BASE_URL: "https://n8nsso.inlumi.education"
+      N8N_PROXY_HOPS: "1"
+
+      # Log level
+      N8N_LOG_LEVEL: info
+      N8N_LOG_OUTPUT: console
+
+      # Timezone
+      GENERIC_TIMEZONE: ${TIMEZONE:-UTC}
+      TZ: ${TIMEZONE:-UTC}
+
+      # External hooks for enterprise features bypass
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+
+      # Source control (enterprise feature)
+      N8N_SOURCE_CONTROL_DEFAULT_SSH_KEY_TYPE: ed25519
+
+      # Variables feature (enterprise)
+      N8N_VARIABLES_ENABLED: "true"
+
+      # External secrets (enterprise)
+      N8N_EXTERNAL_SECRETS_ENABLED: "true"
+
+      # Audit logs (enterprise)
+      N8N_AUDIT_LOGS_ENABLED: "true"
+
+      # Debug/dev mode to bypass license checks
+      N8N_DEPLOYMENT_TYPE: "default"
+      NODE_ENV: development
+
+      # License bypass - Simulate valid enterprise license until 2099
+      N8N_LICENSE_CERT: ""
+      N8N_COMMUNITY_PLUS_ENABLED: "true"
+      N8N_COMMUNITY_PLUS_QUOTA_TRIGGER_DAYS: "-1"
+
+      # Worker mode support - Using SSE for Azure Application Proxy compatibility
+      N8N_PUSH_BACKEND: sse
+
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./local-files:/files
+      - ./hooks.js:/home/node/.n8n/hooks.js:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`${N8N_HOST:-localhost}`)"
+      - "traefik.http.routers.n8n.entrypoints=websecure"
+      - "traefik.http.routers.n8n.tls=true"
+      - "traefik.http.routers.n8n.middlewares=azure-headers@file,security-headers@file"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+      - "traefik.http.routers.n8n-http.rule=Host(`${N8N_HOST:-localhost}`)"
+      - "traefik.http.routers.n8n-http.entrypoints=web"
+      - "traefik.http.routers.n8n-http.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+    networks:
+      - n8n-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: n8n-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - n8n-network
+
+  n8n-worker:
+    image: n8n-enterprise:latest
+    container_name: n8n-worker
+    restart: unless-stopped
+    depends_on:
+      - n8n
+      - redis
+      - postgres
+    command: worker
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB:-n8n}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER:-n8n}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-n8n_secure_password}
+      EXECUTIONS_MODE: queue
+      QUEUE_BULL_REDIS_HOST: redis
+      N8N_ENCRYPTION_KEY: ${ENCRYPTION_KEY:-your_encryption_key_change_me_32_chars}
+      GENERIC_TIMEZONE: ${TIMEZONE:-UTC}
+      TZ: ${TIMEZONE:-UTC}
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./local-files:/files
+    networks:
+      - n8n-network
+
+volumes:
+  postgres_data:
+  n8n_data:
+  redis_data:
+
+networks:
+  n8n-network:
+    driver: bridge

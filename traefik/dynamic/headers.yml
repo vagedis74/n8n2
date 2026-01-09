@@ -1,0 +1,30 @@
+# Traefik middleware for header handling with Azure AD App Proxy
+http:
+  middlewares:
+    # Pass Azure AD App Proxy headers to n8n for SSO authentication
+    # Azure AD App Proxy automatically adds these headers after authentication:
+    # - X-MS-CLIENT-PRINCIPAL-NAME: User's email/UPN (used for SSO)
+    # - X-MS-CLIENT-PRINCIPAL-ID: User's Azure AD Object ID
+    # - X-MS-CLIENT-PRINCIPAL: Base64 encoded JWT claims
+    # These headers pass through Traefik to n8n automatically
+    azure-headers:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+          X-Forwarded-Host: "n8nsso.inlumi.education"
+          Origin: "https://n8nsso.inlumi.education"
+        # SSO headers from Azure AD App Proxy are forwarded automatically
+        # n8n is configured to trust X-MS-CLIENT-PRINCIPAL-NAME for authentication
+
+    # Security headers
+    security-headers:
+      headers:
+        frameDeny: true
+        browserXssFilter: true
+        contentTypeNosniff: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+        contentSecurityPolicy: "upgrade-insecure-requests"
+        customResponseHeaders:
+          X-Forwarded-Proto: "https"
