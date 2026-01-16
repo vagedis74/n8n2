@@ -111,7 +111,9 @@ curl http://localhost:8765/health
 
 ### n8n Webhook Integration
 
-The "FortiGate AI Command Interpreter (Webhook)" workflow uses this wrapper:
+The "FortiGate AI Command Interpreter (Webhook)" workflow uses this wrapper to translate natural language into FortiGate API calls.
+
+**FortiGate API:** `https://nlfmfw1a.epm-cloud.net`
 
 ```bash
 # Test command interpretation
@@ -126,6 +128,8 @@ curl -s -k -X POST "https://localhost/webhook/fortigate-ai" \
   -H "Host: n8nsso.inlumi.education" \
   -d '{"message": "yes", "sessionId": "test-1"}'
 ```
+
+**Supported commands:** firewall policies, interfaces, routes, system status, HA status, address objects, VIPs, VPN tunnels
 
 ## MCP Server Configuration
 
