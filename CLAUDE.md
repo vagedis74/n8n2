@@ -116,8 +116,11 @@ The "FortiGate AI Command Interpreter (Webhook)" workflow uses Claude to transla
 **Workflow ID:** `g56KAd0SA1Gwj7Hw`
 **Endpoint:** `POST /webhook/fortigate-ai`
 **FortiGate API:** `https://nlfmfw1a.epm-cloud.net`
+**Access:** Local only (external access blocked by Azure AD App Proxy)
 
 #### Usage
+
+Access via localhost (requires SSH or local shell):
 
 **1. Interpret only** (review command before execution):
 ```bash
