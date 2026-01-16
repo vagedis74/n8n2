@@ -1,3 +1,5 @@
 .env
 *.pem
 traefik/certs/
+*.log
+local-files/
