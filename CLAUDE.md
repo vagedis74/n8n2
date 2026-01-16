@@ -109,27 +109,46 @@ curl -X POST http://localhost:8765/chat \
 curl http://localhost:8765/health
 ```
 
-### n8n Webhook Integration
+### FortiGate AI Command Interpreter
 
-The "FortiGate AI Command Interpreter (Webhook)" workflow uses this wrapper to translate natural language into FortiGate API calls.
+The "FortiGate AI Command Interpreter (Webhook)" workflow uses Claude to translate natural language into FortiGate REST API calls.
 
+**Workflow ID:** `g56KAd0SA1Gwj7Hw`
+**Endpoint:** `POST /webhook/fortigate-ai`
 **FortiGate API:** `https://nlfmfw1a.epm-cloud.net`
 
+#### Usage
+
+**1. Interpret only** (review command before execution):
 ```bash
-# Test command interpretation
-curl -s -k -X POST "https://localhost/webhook/fortigate-ai" \
-  -H "Content-Type: application/json" \
+curl -sk -X POST "https://localhost/webhook/fortigate-ai" \
   -H "Host: n8nsso.inlumi.education" \
-  -d '{"message": "show firewall policies", "sessionId": "test-1"}'
-
-# Approve execution
-curl -s -k -X POST "https://localhost/webhook/fortigate-ai" \
   -H "Content-Type: application/json" \
-  -H "Host: n8nsso.inlumi.education" \
-  -d '{"message": "yes", "sessionId": "test-1"}'
+  -d '{"message": "show system status"}'
 ```
+Returns: `{"status": "interpreted", "command": {...}, "message": "Add 'execute': true..."}`
 
-**Supported commands:** firewall policies, interfaces, routes, system status, HA status, address objects, VIPs, VPN tunnels
+**2. Execute** (run the command against FortiGate):
+```bash
+curl -sk -X POST "https://localhost/webhook/fortigate-ai" \
+  -H "Host: n8nsso.inlumi.education" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "show system status", "execute": true}'
+```
+Returns: `{"status": "executed", "command": {...}, "response": {...}}`
+
+#### Supported Commands
+
+| Query | API Endpoint |
+|-------|--------------|
+| show system status | GET /api/v2/monitor/system/status |
+| show firewall policies | GET /api/v2/cmdb/firewall/policy |
+| list interfaces | GET /api/v2/cmdb/system/interface |
+| show routes | GET /api/v2/cmdb/router/static |
+| show HA status | GET /api/v2/monitor/system/ha-peer |
+| list address objects | GET /api/v2/cmdb/firewall/address |
+
+Claude interprets natural language variations, so "show me all the firewall rules" works the same as "list firewall policies".
 
 ## MCP Server Configuration
 
