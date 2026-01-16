@@ -32,19 +32,33 @@ fi
 # Navigate to script directory
 cd "$(dirname "$0")"
 
-echo "[1/4] Building n8n Enterprise image..."
+echo "[1/5] Building n8n Enterprise image..."
 $DOCKER_COMPOSE build --no-cache n8n
 
 echo ""
-echo "[2/4] Starting services..."
+echo "[2/5] Starting services..."
 $DOCKER_COMPOSE up -d
 
 echo ""
-echo "[3/4] Waiting for services to be healthy..."
+echo "[3/5] Waiting for services to be healthy..."
 sleep 10
 
 echo ""
-echo "[4/4] Checking service status..."
+echo "[4/5] Starting Claude HTTP wrapper..."
+# Kill any existing wrapper process
+pkill -f "claude-http-wrapper.py" 2>/dev/null || true
+# Start wrapper in background
+nohup python3 "$(dirname "$0")/claude-http-wrapper.py" --port 8765 > "$(dirname "$0")/claude-wrapper.log" 2>&1 &
+WRAPPER_PID=$!
+sleep 2
+if curl -s http://localhost:8765/health > /dev/null 2>&1; then
+    echo "Claude HTTP wrapper started (PID: $WRAPPER_PID)"
+else
+    echo "WARNING: Claude HTTP wrapper may not have started correctly"
+fi
+
+echo ""
+echo "[5/5] Checking service status..."
 $DOCKER_COMPOSE ps
 
 echo ""
@@ -54,6 +68,7 @@ echo "========================================"
 echo ""
 echo "Access n8n at: https://n8nsso.inlumi.education"
 echo "Traefik Dashboard: http://localhost:8080"
+echo "Claude HTTP Wrapper: http://localhost:8765"
 echo ""
 echo "Enterprise Features Enabled:"
 echo "  - SAML Authentication"

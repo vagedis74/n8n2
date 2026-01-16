@@ -12,6 +12,10 @@ else
     DOCKER_COMPOSE="docker-compose"
 fi
 
+echo "Stopping Claude HTTP wrapper..."
+pkill -f "claude-http-wrapper.py" 2>/dev/null && echo "Claude wrapper stopped." || echo "Claude wrapper was not running."
+
+echo ""
 echo "Stopping n8n Enterprise services..."
 $DOCKER_COMPOSE down
 
