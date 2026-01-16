@@ -66,6 +66,8 @@ Azure AD App Proxy (X-MS-CLIENT-PRINCIPAL-NAME header)
 | `.env` | Secrets: DB credentials, JWT secret, encryption key |
 | `traefik/dynamic/headers.yml` | Azure AD header forwarding, security headers |
 | `traefik/dynamic/tls.yml` | TLS certificate configuration |
+| `claude-http-wrapper.py` | HTTP wrapper exposing Claude CLI for n8n |
+| `start-claude-wrapper.sh` | Startup script for Claude wrapper service |
 
 ## Access Points
 
@@ -79,6 +81,51 @@ Azure AD App Proxy (X-MS-CLIENT-PRINCIPAL-NAME header)
 2. Proxy forwards `X-MS-CLIENT-PRINCIPAL-NAME` header with user email
 3. Traefik `azure-headers` middleware passes header to n8n
 4. `hooks.js` intercepts requests and creates/authenticates user session
+
+## Claude HTTP Wrapper
+
+Exposes local Claude CLI as an HTTP API for n8n workflows to call.
+
+### Start the Wrapper
+
+```bash
+./start-claude-wrapper.sh          # Foreground
+python3 claude-http-wrapper.py &   # Background
+```
+
+Runs on `http://localhost:8765`. From inside Docker containers, access via `http://172.17.0.1:8765`.
+
+### API Endpoints
+
+**POST /chat** - Send prompt to Claude CLI
+```bash
+curl -X POST http://localhost:8765/chat \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "your prompt", "system": "optional system prompt"}'
+```
+
+**GET /health** - Health check
+```bash
+curl http://localhost:8765/health
+```
+
+### n8n Webhook Integration
+
+The "FortiGate AI Command Interpreter (Webhook)" workflow uses this wrapper:
+
+```bash
+# Test command interpretation
+curl -s -k -X POST "https://localhost/webhook/fortigate-ai" \
+  -H "Content-Type: application/json" \
+  -H "Host: n8nsso.inlumi.education" \
+  -d '{"message": "show firewall policies", "sessionId": "test-1"}'
+
+# Approve execution
+curl -s -k -X POST "https://localhost/webhook/fortigate-ai" \
+  -H "Content-Type: application/json" \
+  -H "Host: n8nsso.inlumi.education" \
+  -d '{"message": "yes", "sessionId": "test-1"}'
+```
 
 ## MCP Server Configuration
 
