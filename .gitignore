@@ -5,3 +5,4 @@ traefik/certs/
 local-files/
 *.swp
 *~
+n8n-api.sh
