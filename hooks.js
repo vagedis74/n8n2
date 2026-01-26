@@ -83,6 +83,8 @@ module.exports = {
                     '/rest/mfa',
                     '/rest/forgot-password',
                     '/rest/resolve-signup-token',
+                    '/docs',
+                    '/api/v1/docs',
                 ];
 
                 // Add middleware for header-based SSO

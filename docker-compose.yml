@@ -95,7 +95,7 @@ services:
       # - X-MS-CLIENT-PRINCIPAL-NAME: User's email/UPN
       # - X-MS-CLIENT-PRINCIPAL-ID: User's Object ID
       # - X-MS-CLIENT-PRINCIPAL: Base64 encoded claims
-      N8N_AUTH_EXCLUDE_ENDPOINTS: "healthz,metrics,webhook,rest/oauth2-credential"
+      N8N_AUTH_EXCLUDE_ENDPOINTS: "healthz,metrics,webhook,rest/oauth2-credential,docs,api/v1/docs"
 
       # Trust proxy headers
       N8N_TRUST_PROXY: "true"
