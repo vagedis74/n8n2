@@ -7,7 +7,7 @@ set -e
 # Configuration
 N8N_HOST="n8nsso.inlumi.education"
 N8N_API_URL="https://localhost/api/v1"
-N8N_API_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjMDhmNGJlNC1jNzEyLTRkMzYtYTVkNy1iYTc2ZTVkZTQxNDYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzY3OTY5NzYxfQ.ItWhMpa2ndWg9avJmfKEzY1lLzXb8IMqoD-FmSOYPsg"
+N8N_API_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjMDhmNGJlNC1jNzEyLTRkMzYtYTVkNy1iYTc2ZTVkZTQxNDYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzY5NDM4NzM0fQ.fTezugXRoJhF02xknZr8nRPJpZ_dG5yIHSJMNNna0Nc"
 
 # Colors
 RED='\033[0;31m'
