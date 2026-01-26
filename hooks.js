@@ -33,7 +33,6 @@ module.exports = {
             async function () {
                 // 'this' context contains dbCollections from n8n
                 const userRepository = this.dbCollections.User;
-                const roleRepository = this.dbCollections.Role;
 
                 console.log('[SSO] Initializing header-based SSO hook...');
                 console.log(`[SSO] Auto-provisioning: ${AUTO_PROVISION_ENABLED ? 'enabled' : 'disabled'}, default role: ${DEFAULT_ROLE}`);
@@ -121,10 +120,9 @@ module.exports = {
                             return next();
                         }
 
-                        // Look up user by email with role relation
+                        // Look up user by email
                         let user = await userRepository.findOne({
                             where: { email: lookupEmail.toLowerCase() },
-                            relations: ['role'],
                         });
 
                         // Auto-provision user if not found and enabled
@@ -132,13 +130,14 @@ module.exports = {
                             try {
                                 console.log(`[SSO] Auto-provisioning new user: ${lookupEmail}`);
 
-                                // Find the default role
-                                const [scope, name] = DEFAULT_ROLE.split(':');
-                                const role = await roleRepository.findOne({
-                                    where: { scope, name },
-                                });
+                                // Verify the default role exists
+                                const dataSource = userRepository.manager.connection;
+                                const roleResult = await dataSource.query(
+                                    'SELECT slug FROM role WHERE slug = $1 LIMIT 1',
+                                    [DEFAULT_ROLE]
+                                );
 
-                                if (!role) {
+                                if (!roleResult || roleResult.length === 0) {
                                     console.error(`[SSO] Default role not found: ${DEFAULT_ROLE}`);
                                     return next();
                                 }
@@ -148,12 +147,12 @@ module.exports = {
                                 const firstName = nameParts[0] || '';
                                 const lastName = nameParts.slice(1).join(' ') || '';
 
-                                // Create the new user
+                                // Create the new user with roleSlug
                                 const newUser = userRepository.create({
                                     email: lookupEmail.toLowerCase(),
                                     firstName,
                                     lastName,
-                                    role,
+                                    roleSlug: DEFAULT_ROLE,
                                     disabled: false,
                                 });
 
