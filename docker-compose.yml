@@ -77,10 +77,18 @@ services:
       N8N_USER_MANAGEMENT_DISABLED: "false"
 
       # SAML Configuration
-      N8N_SAML_ENABLED: "true"
+      N8N_SAML_ENABLED: "false"
 
-      # LDAP Configuration (can be used alongside SAML/OIDC)
-      N8N_LDAP_ENABLED: "true"
+      # LDAP Configuration
+      N8N_LDAP_ENABLED: "false"
+
+      # OIDC Configuration (Azure AD)
+      N8N_SSO_OIDC_ENABLED: "true"
+      N8N_SSO_OIDC_CLIENT_ID: ${AZURE_CLIENT_ID}
+      N8N_SSO_OIDC_CLIENT_SECRET: ${AZURE_CLIENT_SECRET}
+      N8N_SSO_OIDC_ISSUER: "https://login.microsoftonline.com/${AZURE_TENANT_ID}/v2.0"
+      N8N_SSO_OIDC_ALLOWED_REDIRECT_URLS: "https://n8nsso.inlumi.education/rest/sso/oidc/callback"
+      N8N_SSO_OIDC_SCOPES: "openid profile email"
 
       # Header-based Authentication (for Azure AD App Proxy)
       # Azure AD App Proxy passes these headers after authentication:
