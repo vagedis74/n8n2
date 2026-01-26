@@ -4,11 +4,28 @@
  * This hook enables trusted header authentication for n8n when used behind
  * Azure AD App Proxy or other identity-aware proxies.
  *
- * The proxy must authenticate users and pass their email in a trusted header.
+ * Azure AD App Proxy Headers:
+ * - X-MS-TOKEN-AAD-ACCESS-TOKEN: Azure AD access token
+ * - X-MS-CLIENT-PRINCIPAL-NAME: User Principal Name (UPN)
+ * - X-MS-CLIENT-PRINCIPAL-ID: Azure AD Object ID
+ * - X-Forwarded-Email: User's email address (user.mail)
+ * - X-Forwarded-User: User's display name
+ *
  * IMPORTANT: Ensure n8n is only accessible via the proxy to prevent header spoofing.
  */
 
-const HEADER_NAME = (process.env.N8N_FORWARD_AUTH_HEADER || 'X-MS-CLIENT-PRINCIPAL-NAME').toLowerCase();
+// Header names (lowercase for HTTP header lookup)
+const HEADERS = {
+    email: (process.env.N8N_FORWARD_AUTH_HEADER || 'x-forwarded-email').toLowerCase(),
+    upn: 'x-ms-client-principal-name',
+    objectId: 'x-ms-client-principal-id',
+    displayName: 'x-forwarded-user',
+    accessToken: 'x-ms-token-aad-access-token',
+};
+
+// Auto-provisioning settings
+const AUTO_PROVISION_ENABLED = process.env.N8N_SSO_AUTO_PROVISION !== 'false'; // Enabled by default
+const DEFAULT_ROLE = process.env.N8N_SSO_DEFAULT_ROLE || 'global:member'; // global:admin, global:member
 
 module.exports = {
     n8n: {
@@ -16,8 +33,10 @@ module.exports = {
             async function () {
                 // 'this' context contains dbCollections from n8n
                 const userRepository = this.dbCollections.User;
+                const roleRepository = this.dbCollections.Role;
 
                 console.log('[SSO] Initializing header-based SSO hook...');
+                console.log(`[SSO] Auto-provisioning: ${AUTO_PROVISION_ENABLED ? 'enabled' : 'disabled'}, default role: ${DEFAULT_ROLE}`);
 
                 // Get the Express app from the Server instance via DI container
                 let app;
@@ -90,22 +109,72 @@ module.exports = {
                             return next();
                         }
 
-                        // Get email from trusted header
-                        const email = req.headers[HEADER_NAME];
-                        if (!email) {
+                        // Get user info from trusted headers
+                        const email = req.headers[HEADERS.email];
+                        const upn = req.headers[HEADERS.upn];
+                        const objectId = req.headers[HEADERS.objectId];
+                        const displayName = req.headers[HEADERS.displayName];
+
+                        // Try email first, fall back to UPN
+                        const lookupEmail = email || upn;
+                        if (!lookupEmail) {
                             return next();
                         }
 
                         // Look up user by email with role relation
-                        const user = await userRepository.findOne({
-                            where: { email: email.toLowerCase() },
+                        let user = await userRepository.findOne({
+                            where: { email: lookupEmail.toLowerCase() },
                             relations: ['role'],
                         });
 
-                        if (!user) {
-                            console.log(`[SSO] User not found for email: ${email}`);
+                        // Auto-provision user if not found and enabled
+                        if (!user && AUTO_PROVISION_ENABLED) {
+                            try {
+                                console.log(`[SSO] Auto-provisioning new user: ${lookupEmail}`);
+
+                                // Find the default role
+                                const [scope, name] = DEFAULT_ROLE.split(':');
+                                const role = await roleRepository.findOne({
+                                    where: { scope, name },
+                                });
+
+                                if (!role) {
+                                    console.error(`[SSO] Default role not found: ${DEFAULT_ROLE}`);
+                                    return next();
+                                }
+
+                                // Parse display name into first/last name
+                                const nameParts = (displayName || lookupEmail.split('@')[0]).split(' ');
+                                const firstName = nameParts[0] || '';
+                                const lastName = nameParts.slice(1).join(' ') || '';
+
+                                // Create the new user
+                                const newUser = userRepository.create({
+                                    email: lookupEmail.toLowerCase(),
+                                    firstName,
+                                    lastName,
+                                    role,
+                                    disabled: false,
+                                });
+
+                                user = await userRepository.save(newUser);
+                                console.log(`[SSO] Created new user: ${lookupEmail} (role: ${DEFAULT_ROLE})`);
+                            } catch (provisionError) {
+                                console.error(`[SSO] Failed to provision user: ${provisionError.message}`);
+                                return next();
+                            }
+                        } else if (!user) {
+                            console.log(`[SSO] User not found for email: ${lookupEmail} (objectId: ${objectId || 'N/A'})`);
                             return next();
                         }
+
+                        // Store additional Azure AD info on request for potential use
+                        req.azureAdInfo = {
+                            email,
+                            upn,
+                            objectId,
+                            displayName,
+                        };
 
                         // Issue authentication cookie if AuthService is available
                         if (authService && authService.issueCookie) {
@@ -119,7 +188,7 @@ module.exports = {
                         // Set the user on the request
                         req.user = user;
 
-                        console.log(`[SSO] Authenticated user via header: ${email}`);
+                        console.log(`[SSO] Authenticated user: ${lookupEmail} (${displayName || 'N/A'})`);
                         return next();
                     } catch (error) {
                         console.error('[SSO] Authentication error:', error.message);
@@ -153,7 +222,7 @@ module.exports = {
 
                 console.log('[SSO] Middleware injected via app.handle override');
 
-                console.log(`[SSO] Header-based SSO enabled. Trusted header: ${HEADER_NAME}`);
+                console.log(`[SSO] Header-based SSO enabled. Primary header: ${HEADERS.email}, fallback: ${HEADERS.upn}`);
             },
         ],
     },

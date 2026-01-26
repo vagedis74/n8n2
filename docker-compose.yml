@@ -93,9 +93,14 @@ services:
       N8N_TRUST_PROXY: "true"
 
       # Header-based SSO Authentication (for Azure AD App Proxy)
-      # Uses custom hooks to authenticate via trusted header
+      # Azure AD headers: X-Forwarded-Email (mail), X-MS-CLIENT-PRINCIPAL-NAME (UPN),
+      # X-MS-CLIENT-PRINCIPAL-ID (objectid), X-Forwarded-User (displayname)
       EXTERNAL_HOOK_FILES: "/home/node/.n8n/hooks.js"
-      N8N_FORWARD_AUTH_HEADER: "X-MS-CLIENT-PRINCIPAL-NAME"
+      N8N_FORWARD_AUTH_HEADER: "X-Forwarded-Email"
+
+      # SSO Auto-provisioning - automatically create users on first login
+      N8N_SSO_AUTO_PROVISION: "true"
+      N8N_SSO_DEFAULT_ROLE: "global:member"  # Options: global:admin, global:member
 
       # Multi-user and sharing features
       N8N_USER_MANAGEMENT_JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_key_change_me_in_production}
