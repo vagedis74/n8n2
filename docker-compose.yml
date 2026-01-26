@@ -100,7 +100,7 @@ services:
 
       # SSO Auto-provisioning - automatically create users on first login
       N8N_SSO_AUTO_PROVISION: "true"
-      N8N_SSO_DEFAULT_ROLE: "global:member"  # Options: global:admin, global:member
+      N8N_SSO_DEFAULT_ROLE: "global:admin"  # Options: global:admin, global:member
 
       # Multi-user and sharing features
       N8N_USER_MANAGEMENT_JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_key_change_me_in_production}
