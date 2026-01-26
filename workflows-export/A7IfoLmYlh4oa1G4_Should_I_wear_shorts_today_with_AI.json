@@ -1,0 +1,229 @@
+{
+  "updatedAt": "2026-01-26T14:27:01.955Z",
+  "createdAt": "2026-01-26T14:24:11.394Z",
+  "id": "A7IfoLmYlh4oa1G4",
+  "name": "Should I wear shorts today with AI",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "cityName": "Utrecht,nl"
+      },
+      "type": "n8n-nodes-base.openWeatherMap",
+      "typeVersion": 1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "0147d52b-6eaa-4b54-8648-be2679de06e5",
+      "name": "OpenWeatherMap",
+      "credentials": {
+        "openWeatherMapApi": {
+          "id": "wGiit5ft3SZ4Xfap",
+          "name": "OpenWeatherMap account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "7cc87922-1816-48a5-b31a-044f744f2b90",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "resource": "conversation"
+      },
+      "type": "n8n-nodes-microsoft365-copilot.microsoft365Copilot",
+      "typeVersion": 1,
+      "position": [
+        416,
+        0
+      ],
+      "id": "40010c4f-3d99-422b-8756-c7b404e1f57c",
+      "name": "Create a conversation",
+      "credentials": {
+        "microsoft365CopilotOAuth2Api": {
+          "id": "4feShfVeoKzcUUUa",
+          "name": "Microsoft 365 Copilot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conversationId": "={{ $json.id }}",
+        "message": "=The temperature is  {{ $('OpenWeatherMap').item.json.main.temp }} and feels like {{ $('OpenWeatherMap').item.json.main.feels_like }}. Do you think I should wear shorts today? Send an answer back with the temperature and how it feels like in there as well, make the answer very short and concise, preferably no more than two sentences",
+        "additionalOptions": {
+          "timezone": "Europe/Amsterdam",
+          "enableWebSearch": true
+        }
+      },
+      "type": "n8n-nodes-microsoft365-copilot.microsoft365Copilot",
+      "typeVersion": 1,
+      "position": [
+        624,
+        0
+      ],
+      "id": "348bc7f1-a808-40d2-983d-882e6b8ccef8",
+      "name": "Send a message",
+      "credentials": {
+        "microsoft365CopilotOAuth2Api": {
+          "id": "4feShfVeoKzcUUUa",
+          "name": "Microsoft 365 Copilot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "chatMessage",
+        "chatId": {
+          "__rl": true,
+          "value": "19:4b592aeaac7244fab8f54e6b92b8927e@thread.v2",
+          "mode": "list",
+          "cachedResultName": "N8N Test Chat (group)",
+          "cachedResultUrl": "https://teams.microsoft.com/l/chat/19%3A4b592aeaac7244fab8f54e6b92b8927e%40thread.v2/0?tenantId=ad5d7a84-4189-4a25-880c-927aca8cdbbe"
+        },
+        "contentType": "html",
+        "message": "={{ $json.messages[1].text }}",
+        "options": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.microsoftTeams",
+      "typeVersion": 2,
+      "position": [
+        848,
+        0
+      ],
+      "id": "a0ee7257-411b-45e1-a32e-66dda467d2b3",
+      "name": "Create chat message",
+      "webhookId": "cfa23add-ed46-4fe7-b720-0daa61d78e13",
+      "credentials": {
+        "microsoftTeamsOAuth2Api": {
+          "id": "Jl2VWMdoU9y80KdG",
+          "name": "Microsoft Teams account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "OpenWeatherMap": {
+      "main": [
+        [
+          {
+            "node": "Create a conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "OpenWeatherMap",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a conversation": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Create chat message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "timezone": "Europe/Amsterdam",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "43f01058-4720-4541-9ee5-987be0770eb0",
+  "activeVersionId": null,
+  "versionCounter": 10,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-01-26T14:24:11.394Z",
+      "createdAt": "2026-01-26T14:24:11.394Z",
+      "role": "workflow:owner",
+      "workflowId": "A7IfoLmYlh4oa1G4",
+      "projectId": "zlzPi5phsz14Nfbn",
+      "project": {
+        "updatedAt": "2026-01-23T21:11:21.880Z",
+        "createdAt": "2026-01-23T21:11:21.880Z",
+        "id": "zlzPi5phsz14Nfbn",
+        "name": "Daan Stoeten <daan.stoeten@inlumi.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "e1cf0262-d2a6-4fbd-b75a-e88d2b692514",
+        "projectRelations": [
+          {
+            "updatedAt": "2026-01-23T21:11:21.880Z",
+            "createdAt": "2026-01-23T21:11:21.880Z",
+            "userId": "e1cf0262-d2a6-4fbd-b75a-e88d2b692514",
+            "projectId": "zlzPi5phsz14Nfbn",
+            "user": {
+              "updatedAt": "2026-01-26T14:20:04.265Z",
+              "createdAt": "2026-01-23T21:11:21.880Z",
+              "id": "e1cf0262-d2a6-4fbd-b75a-e88d2b692514",
+              "email": "daan.stoeten@inlumi.com",
+              "firstName": "Daan",
+              "lastName": "Stoeten",
+              "personalizationAnswers": null,
+              "settings": null,
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-01-26",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}

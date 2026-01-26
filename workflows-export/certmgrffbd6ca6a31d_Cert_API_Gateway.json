@@ -1,0 +1,218 @@
+{
+  "updatedAt": "2026-01-23T16:31:49.697Z",
+  "createdAt": "2026-01-23T16:31:49.697Z",
+  "id": "certmgrffbd6ca6a31d",
+  "name": "Cert API Gateway",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "path": "cert-api",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "cert-api-webhook"
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.body.method || 'GET' }}",
+        "url": "=http://172.18.0.1:8001{{ $json.body.path || '/devices' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body.data ? JSON.stringify($json.body.data) : '{}' }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "http-1",
+      "name": "Cert MCP API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        250,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Cert MCP API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "9cae0df3-7173-4258-aeec-891ee382e1b5",
+  "activeVersionId": "9cae0df3-7173-4258-aeec-891ee382e1b5",
+  "versionCounter": 17,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-01-23T16:31:49.956Z",
+      "createdAt": "2026-01-23T16:31:49.956Z",
+      "role": "workflow:owner",
+      "workflowId": "certmgrffbd6ca6a31d",
+      "projectId": "8YNjh86Z6YtR2Bp7",
+      "project": {
+        "updatedAt": "2026-01-09T13:22:01.384Z",
+        "createdAt": "2026-01-09T13:14:22.358Z",
+        "id": "8YNjh86Z6YtR2Bp7",
+        "name": "Wouter Bon <wouter.bon@inlumi.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "c08f4be4-c712-4d36-a5d7-ba76e5de4146",
+        "projectRelations": [
+          {
+            "updatedAt": "2026-01-09T13:14:22.358Z",
+            "createdAt": "2026-01-09T13:14:22.358Z",
+            "userId": "c08f4be4-c712-4d36-a5d7-ba76e5de4146",
+            "projectId": "8YNjh86Z6YtR2Bp7",
+            "user": {
+              "updatedAt": "2026-01-26T14:20:21.357Z",
+              "createdAt": "2026-01-09T13:14:21.075Z",
+              "id": "c08f4be4-c712-4d36-a5d7-ba76e5de4146",
+              "email": "wouter.bon@inlumi.com",
+              "firstName": "Wouter",
+              "lastName": "Bon",
+              "personalizationAnswers": null,
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "g56KAd0SA1Gwj7Hw",
+                "userActivatedAt": 1768577448131
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-01-26",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "updatedAt": "2026-01-23T21:22:09.566Z",
+      "createdAt": "2026-01-23T21:22:09.566Z",
+      "role": "workflow:editor",
+      "workflowId": "certmgrffbd6ca6a31d",
+      "projectId": "zlzPi5phsz14Nfbn",
+      "project": {
+        "updatedAt": "2026-01-23T21:11:21.880Z",
+        "createdAt": "2026-01-23T21:11:21.880Z",
+        "id": "zlzPi5phsz14Nfbn",
+        "name": "Daan Stoeten <daan.stoeten@inlumi.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "e1cf0262-d2a6-4fbd-b75a-e88d2b692514",
+        "projectRelations": [
+          {
+            "updatedAt": "2026-01-23T21:11:21.880Z",
+            "createdAt": "2026-01-23T21:11:21.880Z",
+            "userId": "e1cf0262-d2a6-4fbd-b75a-e88d2b692514",
+            "projectId": "zlzPi5phsz14Nfbn",
+            "user": {
+              "updatedAt": "2026-01-26T14:20:04.265Z",
+              "createdAt": "2026-01-23T21:11:21.880Z",
+              "id": "e1cf0262-d2a6-4fbd-b75a-e88d2b692514",
+              "email": "daan.stoeten@inlumi.com",
+              "firstName": "Daan",
+              "lastName": "Stoeten",
+              "personalizationAnswers": null,
+              "settings": null,
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-01-26",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-01-23T16:31:49.783Z",
+    "createdAt": "2026-01-23T16:31:49.783Z",
+    "versionId": "9cae0df3-7173-4258-aeec-891ee382e1b5",
+    "workflowId": "certmgrffbd6ca6a31d",
+    "nodes": [
+      {
+        "parameters": {
+          "path": "cert-api",
+          "responseMode": "lastNode",
+          "options": {}
+        },
+        "id": "webhook-1",
+        "name": "Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          300
+        ],
+        "webhookId": "cert-api-webhook"
+      },
+      {
+        "parameters": {
+          "method": "={{ $json.body.method || 'GET' }}",
+          "url": "=http://172.18.0.1:8001{{ $json.body.path || '/devices' }}",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.body.data ? JSON.stringify($json.body.data) : '{}' }}",
+          "options": {
+            "timeout": 30000
+          }
+        },
+        "id": "http-1",
+        "name": "Cert MCP API",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          250,
+          300
+        ]
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Cert MCP API",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "system",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": []
+  }
+}

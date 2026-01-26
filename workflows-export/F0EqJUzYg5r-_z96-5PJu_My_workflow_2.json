@@ -1,0 +1,144 @@
+{
+  "updatedAt": "2026-01-13T08:51:39.025Z",
+  "createdAt": "2026-01-13T08:14:49.674Z",
+  "id": "F0EqJUzYg5r-_z96-5PJu",
+  "name": "My workflow 2",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "2601b653-b9cf-4be5-9654-e42982f019b4",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "command": "=claude -p \"How many containers are up right now?\" --session-id {{ $json.sessionId }}"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        592,
+        -16
+      ],
+      "id": "cb11686d-5204-48c8-857c-63f118bb783c",
+      "name": "Execute a command",
+      "credentials": {
+        "sshPassword": {
+          "id": "MYT70NZjhWZhLEwN",
+          "name": "SSH Password account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {\n  const r = Math.random() * 16 | 0;\n  const v = c == 'x' ? r : (r & 0x3 | 0x8);\n  return v.toString(16);\n});\n\nreturn [{ json: { sessionId: uuid } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        0
+      ],
+      "id": "88d9af16-0594-4a96-a90e-63643c749fc9",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a command": {
+      "main": [
+        []
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Execute a command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "513ad59e-857e-44b9-b405-fa806ad89120",
+  "activeVersionId": null,
+  "versionCounter": 4,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-01-13T08:14:49.674Z",
+      "createdAt": "2026-01-13T08:14:49.674Z",
+      "role": "workflow:owner",
+      "workflowId": "F0EqJUzYg5r-_z96-5PJu",
+      "projectId": "8YNjh86Z6YtR2Bp7",
+      "project": {
+        "updatedAt": "2026-01-09T13:22:01.384Z",
+        "createdAt": "2026-01-09T13:14:22.358Z",
+        "id": "8YNjh86Z6YtR2Bp7",
+        "name": "Wouter Bon <wouter.bon@inlumi.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "c08f4be4-c712-4d36-a5d7-ba76e5de4146",
+        "projectRelations": [
+          {
+            "updatedAt": "2026-01-09T13:14:22.358Z",
+            "createdAt": "2026-01-09T13:14:22.358Z",
+            "userId": "c08f4be4-c712-4d36-a5d7-ba76e5de4146",
+            "projectId": "8YNjh86Z6YtR2Bp7",
+            "user": {
+              "updatedAt": "2026-01-26T14:20:21.357Z",
+              "createdAt": "2026-01-09T13:14:21.075Z",
+              "id": "c08f4be4-c712-4d36-a5d7-ba76e5de4146",
+              "email": "wouter.bon@inlumi.com",
+              "firstName": "Wouter",
+              "lastName": "Bon",
+              "personalizationAnswers": null,
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "g56KAd0SA1Gwj7Hw",
+                "userActivatedAt": 1768577448131
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-01-26",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}

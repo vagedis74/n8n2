@@ -1,0 +1,312 @@
+{
+  "updatedAt": "2026-01-26T14:27:03.698Z",
+  "createdAt": "2026-01-26T14:12:49.420Z",
+  "id": "JKjTDZWq4fT2V2sX",
+  "name": "Daily temperature Update with AI",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "cityName": "Utrecht,nl"
+      },
+      "type": "n8n-nodes-base.openWeatherMap",
+      "typeVersion": 1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "2d3c43ae-c13b-42c7-b8d3-a53f361b5bbc",
+      "name": "OpenWeatherMap",
+      "credentials": {
+        "openWeatherMapApi": {
+          "id": "wGiit5ft3SZ4Xfap",
+          "name": "OpenWeatherMap account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8d9fd23a-6437-4eae-b0a7-9183a00c06c8",
+              "leftValue": "={{ $json.messages[1].text }}",
+              "rightValue": "Yes",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        864,
+        0
+      ],
+      "id": "a8de2d28-01c2-4f95-ba61-ae560c074782",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "resource": "chatMessage",
+        "chatId": {
+          "__rl": true,
+          "value": "19:4b592aeaac7244fab8f54e6b92b8927e@thread.v2",
+          "mode": "list",
+          "cachedResultName": "N8N Test Chat (group)",
+          "cachedResultUrl": "https://teams.microsoft.com/l/chat/19%3A4b592aeaac7244fab8f54e6b92b8927e%40thread.v2/0?tenantId=ad5d7a84-4189-4a25-880c-927aca8cdbbe"
+        },
+        "contentType": "html",
+        "message": "=Today the temperature will be <b>{{ $('OpenWeatherMap').item.json.main.temp }}°</b> celcius but it will feel like <b>{{ $('OpenWeatherMap').item.json.main.feels_like }}°</b> celcius.</p>\n\nMaybe don't wear shorts today.",
+        "options": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.microsoftTeams",
+      "typeVersion": 2,
+      "position": [
+        1168,
+        80
+      ],
+      "id": "1603a807-65f0-465d-8c88-07709944f307",
+      "name": "Create chat message1",
+      "webhookId": "7fac1567-d243-4acf-9cd7-3dc676ab098b",
+      "credentials": {
+        "microsoftTeamsOAuth2Api": {
+          "id": "Jl2VWMdoU9y80KdG",
+          "name": "Microsoft Teams account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "e4bf5dda-5615-46f3-80b8-e4b2f580d75c",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "resource": "conversation"
+      },
+      "type": "n8n-nodes-microsoft365-copilot.microsoft365Copilot",
+      "typeVersion": 1,
+      "position": [
+        416,
+        0
+      ],
+      "id": "1f301f18-282e-41e7-b88b-03da61cf663c",
+      "name": "Create a conversation",
+      "credentials": {
+        "microsoft365CopilotOAuth2Api": {
+          "id": "4feShfVeoKzcUUUa",
+          "name": "Microsoft 365 Copilot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conversationId": "={{ $json.id }}",
+        "message": "=The temperature is  {{ $('OpenWeatherMap').item.json.main.temp }} and feels like {{ $('OpenWeatherMap').item.json.main.feels_like }}. Do you think I should wear shorts today? Answer with one word only saying Yes or No",
+        "additionalOptions": {
+          "timezone": "Europe/Amsterdam",
+          "enableWebSearch": true
+        }
+      },
+      "type": "n8n-nodes-microsoft365-copilot.microsoft365Copilot",
+      "typeVersion": 1,
+      "position": [
+        624,
+        0
+      ],
+      "id": "4cd509ed-6142-405f-9024-b1ea943c77b7",
+      "name": "Send a message",
+      "credentials": {
+        "microsoft365CopilotOAuth2Api": {
+          "id": "4feShfVeoKzcUUUa",
+          "name": "Microsoft 365 Copilot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "chatMessage",
+        "chatId": {
+          "__rl": true,
+          "value": "19:4b592aeaac7244fab8f54e6b92b8927e@thread.v2",
+          "mode": "list",
+          "cachedResultName": "N8N Test Chat (group)",
+          "cachedResultUrl": "https://teams.microsoft.com/l/chat/19%3A4b592aeaac7244fab8f54e6b92b8927e%40thread.v2/0?tenantId=ad5d7a84-4189-4a25-880c-927aca8cdbbe"
+        },
+        "contentType": "html",
+        "message": "=Today the temperature will be <b>{{ $('OpenWeatherMap').item.json.main.temp }}°</b> celcius but it will feel like <b>{{ $('OpenWeatherMap').item.json.main.feels_like }}°</b> celcius.</p>\n\nSHORTS WEATHER!!!",
+        "options": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.microsoftTeams",
+      "typeVersion": 2,
+      "position": [
+        1168,
+        -128
+      ],
+      "id": "cf80c0d7-6d86-4224-b563-5801fb264449",
+      "name": "Create chat message",
+      "webhookId": "7fac1567-d243-4acf-9cd7-3dc676ab098b",
+      "credentials": {
+        "microsoftTeamsOAuth2Api": {
+          "id": "Jl2VWMdoU9y80KdG",
+          "name": "Microsoft Teams account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "OpenWeatherMap": {
+      "main": [
+        [
+          {
+            "node": "Create a conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Create chat message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create chat message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "OpenWeatherMap",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a conversation": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "timezone": "Europe/Amsterdam",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "47ed66ce-cff8-44cc-99cd-94b2523fcb6c",
+  "activeVersionId": null,
+  "versionCounter": 9,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-01-26T14:12:49.420Z",
+      "createdAt": "2026-01-26T14:12:49.420Z",
+      "role": "workflow:owner",
+      "workflowId": "JKjTDZWq4fT2V2sX",
+      "projectId": "zlzPi5phsz14Nfbn",
+      "project": {
+        "updatedAt": "2026-01-23T21:11:21.880Z",
+        "createdAt": "2026-01-23T21:11:21.880Z",
+        "id": "zlzPi5phsz14Nfbn",
+        "name": "Daan Stoeten <daan.stoeten@inlumi.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "e1cf0262-d2a6-4fbd-b75a-e88d2b692514",
+        "projectRelations": [
+          {
+            "updatedAt": "2026-01-23T21:11:21.880Z",
+            "createdAt": "2026-01-23T21:11:21.880Z",
+            "userId": "e1cf0262-d2a6-4fbd-b75a-e88d2b692514",
+            "projectId": "zlzPi5phsz14Nfbn",
+            "user": {
+              "updatedAt": "2026-01-26T14:20:04.265Z",
+              "createdAt": "2026-01-23T21:11:21.880Z",
+              "id": "e1cf0262-d2a6-4fbd-b75a-e88d2b692514",
+              "email": "daan.stoeten@inlumi.com",
+              "firstName": "Daan",
+              "lastName": "Stoeten",
+              "personalizationAnswers": null,
+              "settings": null,
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-01-26",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}

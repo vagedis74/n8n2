@@ -1,0 +1,1070 @@
+{
+  "updatedAt": "2026-01-26T14:27:18.282Z",
+  "createdAt": "2026-01-23T21:11:56.292Z",
+  "id": "wrnr_6lYKQ3BOk2ROss1j",
+  "name": "Workflow builder for Copilot Studio",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mcp-flowbuilder",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1376,
+        224
+      ],
+      "id": "de2a8d4e-7aff-4fe3-86dc-c27c3bebdb60",
+      "name": "Webhook",
+      "webhookId": "f0025e9e-e563-4599-bc25-6a09c62d1224"
+    },
+    {
+      "parameters": {
+        "functionCode": "const item = items[0] || { json: {} };\nconst raw = item.json || {};\n\n// Webhook node typically provides body under json.body\nconst body = raw.body && typeof raw.body === 'object' ? raw.body : raw;\n\nconst action = String(body.action || 'create').toLowerCase();\nconst update = action === 'update';\nconst activate = !!body.activate;\nconst workflowId = body.workflow_id || body.id || null;\n\nlet wf = body.workflow || body.payload || body.workflow_json || null;\nif (typeof wf === 'string') {\n  try { wf = JSON.parse(wf); } catch (e) { wf = null; }\n}\n\nif (!wf || typeof wf !== 'object') {\n  throw new Error('Missing workflow payload. Provide body.workflow as an object (exported n8n workflow JSON).');\n}\nif (!Array.isArray(wf.nodes) || typeof wf.connections !== 'object') {\n  throw new Error('Invalid workflow payload: expected { nodes: [...], connections: {...} }');\n}\n\nif (update && !workflowId) {\n  throw new Error('Missing workflow_id for update action. Provide body.workflow_id.');\n}\n\n// Clean fields that often cause issues when sending to API\nconst payload = JSON.parse(JSON.stringify(wf));\ndelete payload.id;\ndelete payload.active;\ndelete payload.versionId;\ndelete payload.meta;\n\n// Ensure required fields exist\npayload.name = String(payload.name || body.name || 'Imported Workflow');\npayload.settings = payload.settings && typeof payload.settings === 'object' ? payload.settings : {};\n\nreturn [{ json: { action, update, activate, workflow_id: workflowId, payload } }];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -1136,
+        224
+      ],
+      "id": "a0e10625-b342-45d8-a8ff-e08f3bd3f3f3",
+      "name": "Normalize Input"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json[\"update\"]}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -928,
+        224
+      ],
+      "id": "a867d10a-f61f-42b4-b798-4ce662998c7f",
+      "name": "IF Update?"
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "={{$env.N8N_BASE_URL + \"/api/v1/workflows\"}}",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={{JSON.stringify($json[\"payload\"])}}",
+        "headerParametersJson": "={{JSON.stringify({\"X-N8N-API-KEY\": $env.N8N_API_KEY, \"Content-Type\": \"application/json\"})}}"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        -688,
+        80
+      ],
+      "id": "ab46119e-85c5-4597-8043-b0998195a8bd",
+      "name": "HTTP Create Workflow"
+    },
+    {
+      "parameters": {
+        "requestMethod": "PUT",
+        "url": "={{$env.N8N_BASE_URL + \"/api/v1/workflows/\" + $json[\"workflow_id\"]}}",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={{JSON.stringify($json[\"payload\"])}}",
+        "headerParametersJson": "={{JSON.stringify({\"X-N8N-API-KEY\": $env.N8N_API_KEY, \"Content-Type\": \"application/json\"})}}"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        -688,
+        368
+      ],
+      "id": "c04a2a6f-49d7-4de7-9d60-a315f2d32e84",
+      "name": "HTTP Update Workflow"
+    },
+    {
+      "parameters": {
+        "functionCode": "const apiResp = items[0].json || {};\nconst norm = $node[\"Normalize Input\"].json;\n\nconst id = apiResp.id || (apiResp.data && apiResp.data.id) || null;\nif (!id) throw new Error('Create API did not return a workflow id.');\n\nreturn [{ json: { ...norm, resolved_workflow_id: id, api_response: apiResp } }];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -464,
+        80
+      ],
+      "id": "c4de876d-d794-4cee-9cb3-45302c6a7911",
+      "name": "Extract Created ID"
+    },
+    {
+      "parameters": {
+        "functionCode": "const apiResp = items[0].json || {};\nconst norm = $node[\"Normalize Input\"].json;\n\nconst id = norm.workflow_id;\nreturn [{ json: { ...norm, resolved_workflow_id: id, api_response: apiResp } }];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -464,
+        368
+      ],
+      "id": "9ec71f80-9ad4-4a19-a489-af5d7f9898aa",
+      "name": "Use Updated ID"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json[\"activate\"]}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -224,
+        80
+      ],
+      "id": "0b7e6deb-92fa-4f26-bb9e-27f6d2ba7627",
+      "name": "IF Activate? (Create)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json[\"activate\"]}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -224,
+        368
+      ],
+      "id": "40b3699d-9ae3-48ce-b702-f884579f9e9f",
+      "name": "IF Activate? (Update)"
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "={{$env.N8N_BASE_URL + \"/api/v1/workflows/\" + $json[\"resolved_workflow_id\"] + \"/activate\"}}",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "{}",
+        "headerParametersJson": "={{JSON.stringify({\"X-N8N-API-KEY\": $env.N8N_API_KEY, \"Content-Type\": \"application/json\"})}}"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "d6f325e9-f23f-4e6e-a524-29204a7d27d7",
+      "name": "HTTP Activate (Create)"
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "={{$env.N8N_BASE_URL + \"/api/v1/workflows/\" + $json[\"resolved_workflow_id\"] + \"/activate\"}}",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "{}",
+        "headerParametersJson": "={{JSON.stringify({\"X-N8N-API-KEY\": $env.N8N_API_KEY, \"Content-Type\": \"application/json\"})}}"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        0,
+        288
+      ],
+      "id": "58f6678f-fd83-4847-94cb-e9eb732225cc",
+      "name": "HTTP Activate (Update)"
+    },
+    {
+      "parameters": {
+        "functionCode": "const norm = $node[\"Normalize Input\"].json;\nconst created = $node[\"Extract Created ID\"].json;\nconst activation = items[0].json || {};\n\nreturn [{ json: {\n  ok: true,\n  action: norm.action,\n  workflow_id: created.resolved_workflow_id,\n  activated: true,\n  activate_response: activation,\n  api_response: created.api_response\n} }];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        240,
+        0
+      ],
+      "id": "59aed757-9c33-4b81-9a6d-7899cca9dab4",
+      "name": "Build Response (Create Activated)"
+    },
+    {
+      "parameters": {
+        "functionCode": "const norm = $node[\"Normalize Input\"].json;\nconst created = $node[\"Extract Created ID\"].json;\n\nreturn [{ json: {\n  ok: true,\n  action: norm.action,\n  workflow_id: created.resolved_workflow_id,\n  activated: false,\n  api_response: created.api_response\n} }];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        0,
+        160
+      ],
+      "id": "afb79cb4-09fb-4ca4-b183-6b1d54b536ab",
+      "name": "Build Response (Create Not Activated)"
+    },
+    {
+      "parameters": {
+        "functionCode": "const norm = $node[\"Normalize Input\"].json;\nconst updated = $node[\"Use Updated ID\"].json;\nconst activation = items[0].json || {};\n\nreturn [{ json: {\n  ok: true,\n  action: norm.action,\n  workflow_id: updated.resolved_workflow_id,\n  activated: true,\n  activate_response: activation,\n  api_response: updated.api_response\n} }];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        240,
+        288
+      ],
+      "id": "3d519eab-88f8-4806-8f8a-5cf946488888",
+      "name": "Build Response (Update Activated)"
+    },
+    {
+      "parameters": {
+        "functionCode": "const norm = $node[\"Normalize Input\"].json;\nconst updated = $node[\"Use Updated ID\"].json;\n\nreturn [{ json: {\n  ok: true,\n  action: norm.action,\n  workflow_id: updated.resolved_workflow_id,\n  activated: false,\n  api_response: updated.api_response\n} }];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        0,
+        448
+      ],
+      "id": "b07ad589-f8ea-4d19-9fb3-fb628c995fc1",
+      "name": "Build Response (Update Not Activated)"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        464,
+        0
+      ],
+      "id": "eade8f77-ea43-4a4f-a406-018d1307c780",
+      "name": "Respond (Create Activated)"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        240,
+        160
+      ],
+      "id": "3fb54b4d-908f-4b5e-9fbc-eca1c24e410b",
+      "name": "Respond (Create Not Activated)"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        464,
+        288
+      ],
+      "id": "f75f9123-174b-457d-b0ab-e6e9de600de8",
+      "name": "Respond (Update Activated)"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        240,
+        448
+      ],
+      "id": "3b283d00-bc56-4134-b95d-2f4d10e2b9dc",
+      "name": "Respond (Update Not Activated)"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "IF Update?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Update?": {
+      "main": [
+        [
+          {
+            "node": "HTTP Update Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Create Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Create Workflow": {
+      "main": [
+        [
+          {
+            "node": "Extract Created ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Update Workflow": {
+      "main": [
+        [
+          {
+            "node": "Use Updated ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Created ID": {
+      "main": [
+        [
+          {
+            "node": "IF Activate? (Create)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use Updated ID": {
+      "main": [
+        [
+          {
+            "node": "IF Activate? (Update)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Activate? (Create)": {
+      "main": [
+        [
+          {
+            "node": "HTTP Activate (Create)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Response (Create Not Activated)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Activate? (Update)": {
+      "main": [
+        [
+          {
+            "node": "HTTP Activate (Update)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Response (Update Not Activated)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Activate (Create)": {
+      "main": [
+        [
+          {
+            "node": "Build Response (Create Activated)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Activate (Update)": {
+      "main": [
+        [
+          {
+            "node": "Build Response (Update Activated)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Response (Create Activated)": {
+      "main": [
+        [
+          {
+            "node": "Respond (Create Activated)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Response (Create Not Activated)": {
+      "main": [
+        [
+          {
+            "node": "Respond (Create Not Activated)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Response (Update Activated)": {
+      "main": [
+        [
+          {
+            "node": "Respond (Update Activated)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Response (Update Not Activated)": {
+      "main": [
+        [
+          {
+            "node": "Respond (Update Not Activated)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "b76a980d-1aa2-44ea-9477-10c093d1860a",
+  "activeVersionId": "b76a980d-1aa2-44ea-9477-10c093d1860a",
+  "versionCounter": 21,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-01-23T21:11:56.292Z",
+      "createdAt": "2026-01-23T21:11:56.292Z",
+      "role": "workflow:owner",
+      "workflowId": "wrnr_6lYKQ3BOk2ROss1j",
+      "projectId": "zlzPi5phsz14Nfbn",
+      "project": {
+        "updatedAt": "2026-01-23T21:11:21.880Z",
+        "createdAt": "2026-01-23T21:11:21.880Z",
+        "id": "zlzPi5phsz14Nfbn",
+        "name": "Daan Stoeten <daan.stoeten@inlumi.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "e1cf0262-d2a6-4fbd-b75a-e88d2b692514",
+        "projectRelations": [
+          {
+            "updatedAt": "2026-01-23T21:11:21.880Z",
+            "createdAt": "2026-01-23T21:11:21.880Z",
+            "userId": "e1cf0262-d2a6-4fbd-b75a-e88d2b692514",
+            "projectId": "zlzPi5phsz14Nfbn",
+            "user": {
+              "updatedAt": "2026-01-26T14:20:04.265Z",
+              "createdAt": "2026-01-23T21:11:21.880Z",
+              "id": "e1cf0262-d2a6-4fbd-b75a-e88d2b692514",
+              "email": "daan.stoeten@inlumi.com",
+              "firstName": "Daan",
+              "lastName": "Stoeten",
+              "personalizationAnswers": null,
+              "settings": null,
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-01-26",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-01-23T21:11:59.495Z",
+    "createdAt": "2026-01-23T21:11:56.292Z",
+    "versionId": "b76a980d-1aa2-44ea-9477-10c093d1860a",
+    "workflowId": "wrnr_6lYKQ3BOk2ROss1j",
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "mcp-flowbuilder",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -1376,
+          224
+        ],
+        "id": "de2a8d4e-7aff-4fe3-86dc-c27c3bebdb60",
+        "name": "Webhook",
+        "webhookId": "f0025e9e-e563-4599-bc25-6a09c62d1224"
+      },
+      {
+        "parameters": {
+          "functionCode": "const item = items[0] || { json: {} };\nconst raw = item.json || {};\n\n// Webhook node typically provides body under json.body\nconst body = raw.body && typeof raw.body === 'object' ? raw.body : raw;\n\nconst action = String(body.action || 'create').toLowerCase();\nconst update = action === 'update';\nconst activate = !!body.activate;\nconst workflowId = body.workflow_id || body.id || null;\n\nlet wf = body.workflow || body.payload || body.workflow_json || null;\nif (typeof wf === 'string') {\n  try { wf = JSON.parse(wf); } catch (e) { wf = null; }\n}\n\nif (!wf || typeof wf !== 'object') {\n  throw new Error('Missing workflow payload. Provide body.workflow as an object (exported n8n workflow JSON).');\n}\nif (!Array.isArray(wf.nodes) || typeof wf.connections !== 'object') {\n  throw new Error('Invalid workflow payload: expected { nodes: [...], connections: {...} }');\n}\n\nif (update && !workflowId) {\n  throw new Error('Missing workflow_id for update action. Provide body.workflow_id.');\n}\n\n// Clean fields that often cause issues when sending to API\nconst payload = JSON.parse(JSON.stringify(wf));\ndelete payload.id;\ndelete payload.active;\ndelete payload.versionId;\ndelete payload.meta;\n\n// Ensure required fields exist\npayload.name = String(payload.name || body.name || 'Imported Workflow');\npayload.settings = payload.settings && typeof payload.settings === 'object' ? payload.settings : {};\n\nreturn [{ json: { action, update, activate, workflow_id: workflowId, payload } }];"
+        },
+        "type": "n8n-nodes-base.function",
+        "typeVersion": 1,
+        "position": [
+          -1136,
+          224
+        ],
+        "id": "a0e10625-b342-45d8-a8ff-e08f3bd3f3f3",
+        "name": "Normalize Input"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "boolean": [
+              {
+                "value1": "={{$json[\"update\"]}}",
+                "value2": true
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 1,
+        "position": [
+          -928,
+          224
+        ],
+        "id": "a867d10a-f61f-42b4-b798-4ce662998c7f",
+        "name": "IF Update?"
+      },
+      {
+        "parameters": {
+          "requestMethod": "POST",
+          "url": "={{$env.N8N_BASE_URL + \"/api/v1/workflows\"}}",
+          "jsonParameters": true,
+          "options": {},
+          "bodyParametersJson": "={{JSON.stringify($json[\"payload\"])}}",
+          "headerParametersJson": "={{JSON.stringify({\"X-N8N-API-KEY\": $env.N8N_API_KEY, \"Content-Type\": \"application/json\"})}}"
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 1,
+        "position": [
+          -688,
+          80
+        ],
+        "id": "ab46119e-85c5-4597-8043-b0998195a8bd",
+        "name": "HTTP Create Workflow"
+      },
+      {
+        "parameters": {
+          "requestMethod": "PUT",
+          "url": "={{$env.N8N_BASE_URL + \"/api/v1/workflows/\" + $json[\"workflow_id\"]}}",
+          "jsonParameters": true,
+          "options": {},
+          "bodyParametersJson": "={{JSON.stringify($json[\"payload\"])}}",
+          "headerParametersJson": "={{JSON.stringify({\"X-N8N-API-KEY\": $env.N8N_API_KEY, \"Content-Type\": \"application/json\"})}}"
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 1,
+        "position": [
+          -688,
+          368
+        ],
+        "id": "c04a2a6f-49d7-4de7-9d60-a315f2d32e84",
+        "name": "HTTP Update Workflow"
+      },
+      {
+        "parameters": {
+          "functionCode": "const apiResp = items[0].json || {};\nconst norm = $node[\"Normalize Input\"].json;\n\nconst id = apiResp.id || (apiResp.data && apiResp.data.id) || null;\nif (!id) throw new Error('Create API did not return a workflow id.');\n\nreturn [{ json: { ...norm, resolved_workflow_id: id, api_response: apiResp } }];"
+        },
+        "type": "n8n-nodes-base.function",
+        "typeVersion": 1,
+        "position": [
+          -464,
+          80
+        ],
+        "id": "c4de876d-d794-4cee-9cb3-45302c6a7911",
+        "name": "Extract Created ID"
+      },
+      {
+        "parameters": {
+          "functionCode": "const apiResp = items[0].json || {};\nconst norm = $node[\"Normalize Input\"].json;\n\nconst id = norm.workflow_id;\nreturn [{ json: { ...norm, resolved_workflow_id: id, api_response: apiResp } }];"
+        },
+        "type": "n8n-nodes-base.function",
+        "typeVersion": 1,
+        "position": [
+          -464,
+          368
+        ],
+        "id": "9ec71f80-9ad4-4a19-a489-af5d7f9898aa",
+        "name": "Use Updated ID"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "boolean": [
+              {
+                "value1": "={{$json[\"activate\"]}}",
+                "value2": true
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 1,
+        "position": [
+          -224,
+          80
+        ],
+        "id": "0b7e6deb-92fa-4f26-bb9e-27f6d2ba7627",
+        "name": "IF Activate? (Create)"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "boolean": [
+              {
+                "value1": "={{$json[\"activate\"]}}",
+                "value2": true
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 1,
+        "position": [
+          -224,
+          368
+        ],
+        "id": "40b3699d-9ae3-48ce-b702-f884579f9e9f",
+        "name": "IF Activate? (Update)"
+      },
+      {
+        "parameters": {
+          "requestMethod": "POST",
+          "url": "={{$env.N8N_BASE_URL + \"/api/v1/workflows/\" + $json[\"resolved_workflow_id\"] + \"/activate\"}}",
+          "jsonParameters": true,
+          "options": {},
+          "bodyParametersJson": "{}",
+          "headerParametersJson": "={{JSON.stringify({\"X-N8N-API-KEY\": $env.N8N_API_KEY, \"Content-Type\": \"application/json\"})}}"
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 1,
+        "position": [
+          0,
+          0
+        ],
+        "id": "d6f325e9-f23f-4e6e-a524-29204a7d27d7",
+        "name": "HTTP Activate (Create)"
+      },
+      {
+        "parameters": {
+          "requestMethod": "POST",
+          "url": "={{$env.N8N_BASE_URL + \"/api/v1/workflows/\" + $json[\"resolved_workflow_id\"] + \"/activate\"}}",
+          "jsonParameters": true,
+          "options": {},
+          "bodyParametersJson": "{}",
+          "headerParametersJson": "={{JSON.stringify({\"X-N8N-API-KEY\": $env.N8N_API_KEY, \"Content-Type\": \"application/json\"})}}"
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 1,
+        "position": [
+          0,
+          288
+        ],
+        "id": "58f6678f-fd83-4847-94cb-e9eb732225cc",
+        "name": "HTTP Activate (Update)"
+      },
+      {
+        "parameters": {
+          "functionCode": "const norm = $node[\"Normalize Input\"].json;\nconst created = $node[\"Extract Created ID\"].json;\nconst activation = items[0].json || {};\n\nreturn [{ json: {\n  ok: true,\n  action: norm.action,\n  workflow_id: created.resolved_workflow_id,\n  activated: true,\n  activate_response: activation,\n  api_response: created.api_response\n} }];"
+        },
+        "type": "n8n-nodes-base.function",
+        "typeVersion": 1,
+        "position": [
+          240,
+          0
+        ],
+        "id": "59aed757-9c33-4b81-9a6d-7899cca9dab4",
+        "name": "Build Response (Create Activated)"
+      },
+      {
+        "parameters": {
+          "functionCode": "const norm = $node[\"Normalize Input\"].json;\nconst created = $node[\"Extract Created ID\"].json;\n\nreturn [{ json: {\n  ok: true,\n  action: norm.action,\n  workflow_id: created.resolved_workflow_id,\n  activated: false,\n  api_response: created.api_response\n} }];"
+        },
+        "type": "n8n-nodes-base.function",
+        "typeVersion": 1,
+        "position": [
+          0,
+          160
+        ],
+        "id": "afb79cb4-09fb-4ca4-b183-6b1d54b536ab",
+        "name": "Build Response (Create Not Activated)"
+      },
+      {
+        "parameters": {
+          "functionCode": "const norm = $node[\"Normalize Input\"].json;\nconst updated = $node[\"Use Updated ID\"].json;\nconst activation = items[0].json || {};\n\nreturn [{ json: {\n  ok: true,\n  action: norm.action,\n  workflow_id: updated.resolved_workflow_id,\n  activated: true,\n  activate_response: activation,\n  api_response: updated.api_response\n} }];"
+        },
+        "type": "n8n-nodes-base.function",
+        "typeVersion": 1,
+        "position": [
+          240,
+          288
+        ],
+        "id": "3d519eab-88f8-4806-8f8a-5cf946488888",
+        "name": "Build Response (Update Activated)"
+      },
+      {
+        "parameters": {
+          "functionCode": "const norm = $node[\"Normalize Input\"].json;\nconst updated = $node[\"Use Updated ID\"].json;\n\nreturn [{ json: {\n  ok: true,\n  action: norm.action,\n  workflow_id: updated.resolved_workflow_id,\n  activated: false,\n  api_response: updated.api_response\n} }];"
+        },
+        "type": "n8n-nodes-base.function",
+        "typeVersion": 1,
+        "position": [
+          0,
+          448
+        ],
+        "id": "b07ad589-f8ea-4d19-9fb3-fb628c995fc1",
+        "name": "Build Response (Update Not Activated)"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{$json}}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.4,
+        "position": [
+          464,
+          0
+        ],
+        "id": "eade8f77-ea43-4a4f-a406-018d1307c780",
+        "name": "Respond (Create Activated)"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{$json}}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.4,
+        "position": [
+          240,
+          160
+        ],
+        "id": "3fb54b4d-908f-4b5e-9fbc-eca1c24e410b",
+        "name": "Respond (Create Not Activated)"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{$json}}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.4,
+        "position": [
+          464,
+          288
+        ],
+        "id": "f75f9123-174b-457d-b0ab-e6e9de600de8",
+        "name": "Respond (Update Activated)"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{$json}}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.4,
+        "position": [
+          240,
+          448
+        ],
+        "id": "3b283d00-bc56-4134-b95d-2f4d10e2b9dc",
+        "name": "Respond (Update Not Activated)"
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Normalize Input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalize Input": {
+        "main": [
+          [
+            {
+              "node": "IF Update?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IF Update?": {
+        "main": [
+          [
+            {
+              "node": "HTTP Update Workflow",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "HTTP Create Workflow",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "HTTP Create Workflow": {
+        "main": [
+          [
+            {
+              "node": "Extract Created ID",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "HTTP Update Workflow": {
+        "main": [
+          [
+            {
+              "node": "Use Updated ID",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract Created ID": {
+        "main": [
+          [
+            {
+              "node": "IF Activate? (Create)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Use Updated ID": {
+        "main": [
+          [
+            {
+              "node": "IF Activate? (Update)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IF Activate? (Create)": {
+        "main": [
+          [
+            {
+              "node": "HTTP Activate (Create)",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Build Response (Create Not Activated)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IF Activate? (Update)": {
+        "main": [
+          [
+            {
+              "node": "HTTP Activate (Update)",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Build Response (Update Not Activated)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "HTTP Activate (Create)": {
+        "main": [
+          [
+            {
+              "node": "Build Response (Create Activated)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "HTTP Activate (Update)": {
+        "main": [
+          [
+            {
+              "node": "Build Response (Update Activated)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Response (Create Activated)": {
+        "main": [
+          [
+            {
+              "node": "Respond (Create Activated)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Response (Create Not Activated)": {
+        "main": [
+          [
+            {
+              "node": "Respond (Create Not Activated)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Response (Update Activated)": {
+        "main": [
+          [
+            {
+              "node": "Respond (Update Activated)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Response (Update Not Activated)": {
+        "main": [
+          [
+            {
+              "node": "Respond (Update Not Activated)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Daan Stoeten",
+    "name": "Version b76a980d",
+    "description": "",
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-01-23T21:11:59.484Z",
+        "id": 34,
+        "workflowId": "wrnr_6lYKQ3BOk2ROss1j",
+        "versionId": "b76a980d-1aa2-44ea-9477-10c093d1860a",
+        "event": "activated",
+        "userId": "e1cf0262-d2a6-4fbd-b75a-e88d2b692514"
+      },
+      {
+        "createdAt": "2026-01-23T21:12:12.703Z",
+        "id": 35,
+        "workflowId": "wrnr_6lYKQ3BOk2ROss1j",
+        "versionId": "b76a980d-1aa2-44ea-9477-10c093d1860a",
+        "event": "activated",
+        "userId": "e1cf0262-d2a6-4fbd-b75a-e88d2b692514"
+      }
+    ]
+  }
+}

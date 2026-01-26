@@ -3,3 +3,5 @@
 traefik/certs/
 *.log
 local-files/
+*.swp
+*~

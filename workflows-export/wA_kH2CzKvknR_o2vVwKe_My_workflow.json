@@ -1,0 +1,156 @@
+{
+  "updatedAt": "2026-01-09T15:11:24.398Z",
+  "createdAt": "2026-01-09T13:22:11.967Z",
+  "id": "wA_kH2CzKvknR_o2vVwKe",
+  "name": "My workflow",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "availableInChat": true,
+        "agentName": "n8nsso",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "4eb29374-e0fc-4c6c-96b5-d34b0b05dc60",
+      "name": "When chat message received",
+      "webhookId": "cdfc814b-a5f9-46dd-9f1a-2f380a136276"
+    },
+    {
+      "parameters": {
+        "resource": "conversation"
+      },
+      "type": "n8n-nodes-microsoft365-copilot.microsoft365Copilot",
+      "typeVersion": 1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "32b34440-8df5-4598-aa20-00e1b3ed9824",
+      "name": "Create a conversation",
+      "credentials": {
+        "microsoft365CopilotOAuth2Api": {
+          "id": "4feShfVeoKzcUUUa",
+          "name": "Microsoft 365 Copilot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conversationId": "={{ $json.id }}",
+        "message": "={{ $('When chat message received').item.json.chatInput }}",
+        "additionalOptions": {
+          "timezone": "Europe/Amsterdam",
+          "additionalContext": "",
+          "enableWebSearch": true
+        }
+      },
+      "type": "n8n-nodes-microsoft365-copilot.microsoft365Copilot",
+      "typeVersion": 1,
+      "position": [
+        416,
+        0
+      ],
+      "id": "8e45b5b8-963f-48f7-88fb-e1136408d6be",
+      "name": "Send a message",
+      "credentials": {
+        "microsoft365CopilotOAuth2Api": {
+          "id": "4feShfVeoKzcUUUa",
+          "name": "Microsoft 365 Copilot account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Create a conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a conversation": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "363c2856-1d1f-4d70-a819-c52e3f28e590",
+  "activeVersionId": null,
+  "versionCounter": 6,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-01-09T13:22:11.967Z",
+      "createdAt": "2026-01-09T13:22:11.967Z",
+      "role": "workflow:owner",
+      "workflowId": "wA_kH2CzKvknR_o2vVwKe",
+      "projectId": "8YNjh86Z6YtR2Bp7",
+      "project": {
+        "updatedAt": "2026-01-09T13:22:01.384Z",
+        "createdAt": "2026-01-09T13:14:22.358Z",
+        "id": "8YNjh86Z6YtR2Bp7",
+        "name": "Wouter Bon <wouter.bon@inlumi.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "c08f4be4-c712-4d36-a5d7-ba76e5de4146",
+        "projectRelations": [
+          {
+            "updatedAt": "2026-01-09T13:14:22.358Z",
+            "createdAt": "2026-01-09T13:14:22.358Z",
+            "userId": "c08f4be4-c712-4d36-a5d7-ba76e5de4146",
+            "projectId": "8YNjh86Z6YtR2Bp7",
+            "user": {
+              "updatedAt": "2026-01-26T14:20:21.357Z",
+              "createdAt": "2026-01-09T13:14:21.075Z",
+              "id": "c08f4be4-c712-4d36-a5d7-ba76e5de4146",
+              "email": "wouter.bon@inlumi.com",
+              "firstName": "Wouter",
+              "lastName": "Bon",
+              "personalizationAnswers": null,
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "g56KAd0SA1Gwj7Hw",
+                "userActivatedAt": 1768577448131
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-01-26",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}

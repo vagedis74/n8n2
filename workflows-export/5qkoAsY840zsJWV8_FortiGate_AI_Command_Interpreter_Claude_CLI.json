@@ -1,0 +1,732 @@
+{
+  "updatedAt": "2026-01-23T21:20:11.714Z",
+  "createdAt": "2026-01-16T14:13:32.047Z",
+  "id": "5qkoAsY840zsJWV8",
+  "name": "FortiGate AI Command Interpreter (Claude CLI)",
+  "description": "Uses local Claude Code CLI via HTTP wrapper to interpret commands",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Check if this is an approval response or new command\nconst userInput = $input.first().json.chatInput;\nconst sessionId = $input.first().json.sessionId;\nconst inputLower = userInput.toLowerCase().trim();\n\nconst staticData = $getWorkflowStaticData('global');\nconst pendingCommands = staticData.pendingCommands || {};\nconst pendingCommand = pendingCommands[sessionId];\n\nconst isApproval = ['yes', 'y', 'approve', 'ok', 'execute', 'run', 'do it', 'proceed', 'confirm'].includes(inputLower);\nconst isRejection = ['no', 'n', 'cancel', 'abort', 'stop', 'reject', 'deny'].includes(inputLower);\n\nlet mode = 'new_command';\nlet commandToExecute = null;\n\nif (pendingCommand && isApproval) {\n  mode = 'execute';\n  commandToExecute = pendingCommand;\n  delete pendingCommands[sessionId];\n  staticData.pendingCommands = pendingCommands;\n} else if (pendingCommand && isRejection) {\n  mode = 'rejected';\n  delete pendingCommands[sessionId];\n  staticData.pendingCommands = pendingCommands;\n} else if (pendingCommand) {\n  delete pendingCommands[sessionId];\n  staticData.pendingCommands = pendingCommands;\n  mode = 'new_command';\n}\n\nreturn {\n  mode: mode,\n  userInput: userInput,\n  sessionId: sessionId,\n  pendingCommand: commandToExecute\n};"
+      },
+      "id": "check-state",
+      "name": "Check Session State",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        224,
+        304
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "is-execute",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.mode }}",
+              "rightValue": "execute"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "route-execute",
+      "name": "Execute Approved?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        448,
+        208
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "is-rejected",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.mode }}",
+              "rightValue": "rejected"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "route-rejected",
+      "name": "Was Rejected?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        448,
+        400
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "return { output: '❌ Command cancelled. What else would you like to do?' };"
+      },
+      "id": "rejected-response",
+      "name": "Rejection Response",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        672,
+        512
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://172.18.0.1:8000/chat ",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"prompt\": {{ JSON.stringify($('Check Session State').item.json.userInput) }},\n  \"system\": \"You are a FortiGate API command interpreter. Your job is to translate natural language requests into FortiGate REST API commands.\\n\\nThe FortiGate API base URL is: https://nlfmfw1a.epm-cloud.net\\n\\nCommon FortiGate API endpoints:\\n- GET /api/v2/cmdb/firewall/policy - List firewall policies\\n- GET /api/v2/cmdb/firewall/address - List address objects\\n- GET /api/v2/cmdb/firewall/service/custom - List service objects\\n- GET /api/v2/cmdb/system/interface - List interfaces\\n- GET /api/v2/cmdb/router/static - List static routes\\n- GET /api/v2/cmdb/firewall/vip - List virtual IPs\\n- GET /api/v2/cmdb/user/local - List local users\\n- GET /api/v2/cmdb/vpn.ipsec/phase1-interface - List VPN phase1\\n- GET /api/v2/cmdb/vpn.ipsec/phase2-interface - List VPN phase2\\n- GET /api/v2/monitor/system/status - System status\\n- GET /api/v2/monitor/router/ipv4 - Routing table\\n- GET /api/v2/monitor/system/ha-peer - HA status\\n- GET /api/v2/monitor/system/interface - Interface statistics\\n- GET /api/v2/monitor/firewall/session - Active sessions\\n- GET /api/v2/monitor/system/resource/usage - Resource usage\\n- GET /api/v2/cmdb/system/admin - List administrators\\n- GET /api/v2/cmdb/system/dns - DNS settings\\n- GET /api/v2/cmdb/log/setting - Logging settings\\n\\nFor modifications:\\n- POST /api/v2/cmdb/firewall/policy - Create policy\\n- PUT /api/v2/cmdb/firewall/policy/{id} - Update policy\\n- DELETE /api/v2/cmdb/firewall/policy/{id} - Delete policy\\n\\nYou MUST respond ONLY with a valid JSON object in this exact format:\\n{\\n  \\\"understood\\\": true/false,\\n  \\\"method\\\": \\\"GET/POST/PUT/DELETE\\\",\\n  \\\"endpoint\\\": \\\"/api/v2/...\\\",\\n  \\\"description\\\": \\\"Human-readable description of what this command will do\\\",\\n  \\\"risk_level\\\": \\\"low/medium/high\\\",\\n  \\\"body\\\": null or JSON object for POST/PUT requests\\n}\\n\\nIf you cannot understand the request or it's not related to FortiGate, set understood=false and explain in description.\\n\\nRisk levels:\\n- low: Read-only operations (GET requests)\\n- medium: Create/modify non-critical settings\\n- high: Delete operations, modify firewall policies, change security settings\\n\\nRespond ONLY with the JSON object, no other text.\",\n  \"max_tokens\": 1024\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "call-claude-http",
+      "name": "Call Claude CLI (HTTP)",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        672,
+        304
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Claude HTTP response and create approval request\nconst response = $input.first().json;\nconst sessionId = $('Check Session State').item.json.sessionId;\nconst userInput = $('Check Session State').item.json.userInput;\n\nif (response.error) {\n  return {\n    output: `❌ Claude CLI Error: ${response.error}\\n\\nMake sure the Claude HTTP wrapper is running:\\n\\`\\`\\`\\n./start-claude-wrapper.sh\\n\\`\\`\\``\n  };\n}\n\nconst cliOutput = response.output || '';\n\nlet parsed;\ntry {\n  const jsonMatch = cliOutput.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    parsed = JSON.parse(jsonMatch[0]);\n  } else {\n    throw new Error('No JSON found in response');\n  }\n} catch (e) {\n  return {\n    output: `❌ I couldn't interpret that command. Please try rephrasing.\\n\\nClaude output: ${cliOutput}\\n\\n**Examples:**\\n- \"Show firewall policies\"\\n- \"List network interfaces\"\\n- \"Get system status\"`\n  };\n}\n\nif (!parsed.understood) {\n  return {\n    output: `❌ I couldn't understand that request.\\n\\n${parsed.description || 'Please try a different command.'}\\n\\n**Examples:**\\n- \"Show firewall policies\"\\n- \"List network interfaces\"\\n- \"Get system status\"`\n  };\n}\n\n// Store pending command\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.pendingCommands) {\n  staticData.pendingCommands = {};\n}\n\nconst command = {\n  method: parsed.method,\n  endpoint: parsed.endpoint,\n  description: parsed.description,\n  risk_level: parsed.risk_level,\n  body: parsed.body,\n  originalRequest: userInput,\n  timestamp: new Date().toISOString()\n};\n\nstaticData.pendingCommands[sessionId] = command;\n\nconst riskEmoji = {\n  'low': '🟢',\n  'medium': '🟡', \n  'high': '🔴'\n};\n\nlet output = `**📋 Command Interpretation** *(via local Claude CLI)*\\n\\n`;\noutput += `**Your request:** ${userInput}\\n\\n`;\noutput += `**API Command:**\\n`;\noutput += `\\`\\`\\`\\n${parsed.method} https://nlfmfw1a.epm-cloud.net${parsed.endpoint}\\n\\`\\`\\`\\n\\n`;\n\nif (parsed.body) {\n  output += `**Request Body:**\\n\\`\\`\\`json\\n${JSON.stringify(parsed.body, null, 2)}\\n\\`\\`\\`\\n\\n`;\n}\n\noutput += `**Description:** ${parsed.description}\\n\\n`;\noutput += `**Risk Level:** ${riskEmoji[parsed.risk_level] || '⚪'} ${parsed.risk_level?.toUpperCase() || 'UNKNOWN'}\\n\\n`;\noutput += `---\\n\\n`;\noutput += `⚠️ **Do you want to execute this command?**\\n\\n`;\noutput += `Reply **yes** to execute or **no** to cancel.`;\n\nreturn { output: output };"
+      },
+      "id": "format-approval",
+      "name": "Format Approval Request",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        880,
+        304
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "={{ $('Check Session State').item.json.pendingCommand.method }}",
+        "url": "=https://nlfmfw1a.epm-cloud.net{{ $('Check Session State').item.json.pendingCommand.endpoint }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $('Check Session State').item.json.pendingCommand.body ? JSON.stringify($('Check Session State').item.json.pendingCommand.body) : '{}' }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "execute-api",
+      "name": "Execute FortiGate API",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        672,
+        80
+      ],
+      "typeVersion": 4.2,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format API response\nconst response = $input.first().json;\nconst command = $('Check Session State').item.json.pendingCommand;\n\nlet output = `✅ **Command Executed Successfully**\\n\\n`;\noutput += `**Endpoint:** \\`${command.method} ${command.endpoint}\\`\\n\\n`;\noutput += `**Response:**\\n\\`\\`\\`json\\n`;\n\nconst responseStr = JSON.stringify(response, null, 2);\nif (responseStr.length > 3000) {\n  output += responseStr.substring(0, 3000) + '\\n... (truncated)';\n} else {\n  output += responseStr;\n}\n\noutput += `\\n\\`\\`\\`\\n\\n`;\noutput += `What else would you like to do?`;\n\nreturn { output: output };"
+      },
+      "id": "format-response",
+      "name": "Format API Response",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        912,
+        80
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handle API errors\nconst error = $input.first().json;\nconst command = $('Check Session State').item.json.pendingCommand;\n\nlet output = `❌ **Command Failed**\\n\\n`;\noutput += `**Endpoint:** \\`${command.method} ${command.endpoint}\\`\\n\\n`;\noutput += `**Error:**\\n\\`\\`\\`\\n${JSON.stringify(error, null, 2)}\\n\\`\\`\\`\\n\\n`;\noutput += `Please check:\\n`;\noutput += `- API credentials are configured\\n`;\noutput += `- FortiGate is accessible\\n`;\noutput += `- The endpoint exists\\n\\n`;\noutput += `What else would you like to try?`;\n\nreturn { output: output };"
+      },
+      "id": "format-error",
+      "name": "Format Error Response",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        912,
+        -64
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "path": "claude-cli",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        0,
+        512
+      ],
+      "webhookId": "claude-cli-webhook",
+      "typeVersion": 2
+    }
+  ],
+  "connections": {
+    "Was Rejected?": {
+      "main": [
+        [
+          {
+            "node": "Rejection Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call Claude CLI (HTTP)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Check Session State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Approved?": {
+      "main": [
+        [
+          {
+            "node": "Execute FortiGate API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Was Rejected?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Session State": {
+      "main": [
+        [
+          {
+            "node": "Execute Approved?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Was Rejected?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute FortiGate API": {
+      "main": [
+        [
+          {
+            "node": "Format API Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Claude CLI (HTTP)": {
+      "main": [
+        [
+          {
+            "node": "Format Approval Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "timeSavedMode": "fixed",
+    "availableInMCP": true
+  },
+  "staticData": {
+    "global": {
+      "pendingCommands": {}
+    }
+  },
+  "meta": null,
+  "pinData": {},
+  "versionId": "cfd12660-18b2-414e-8ee6-6c74984eb18c",
+  "activeVersionId": "cfd12660-18b2-414e-8ee6-6c74984eb18c",
+  "versionCounter": 35,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-01-16T14:37:59.898Z",
+      "createdAt": "2026-01-16T14:37:59.898Z",
+      "role": "workflow:owner",
+      "workflowId": "5qkoAsY840zsJWV8",
+      "projectId": "8YNjh86Z6YtR2Bp7",
+      "project": {
+        "updatedAt": "2026-01-09T13:22:01.384Z",
+        "createdAt": "2026-01-09T13:14:22.358Z",
+        "id": "8YNjh86Z6YtR2Bp7",
+        "name": "Wouter Bon <wouter.bon@inlumi.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "c08f4be4-c712-4d36-a5d7-ba76e5de4146",
+        "projectRelations": [
+          {
+            "updatedAt": "2026-01-09T13:14:22.358Z",
+            "createdAt": "2026-01-09T13:14:22.358Z",
+            "userId": "c08f4be4-c712-4d36-a5d7-ba76e5de4146",
+            "projectId": "8YNjh86Z6YtR2Bp7",
+            "user": {
+              "updatedAt": "2026-01-26T14:20:21.357Z",
+              "createdAt": "2026-01-09T13:14:21.075Z",
+              "id": "c08f4be4-c712-4d36-a5d7-ba76e5de4146",
+              "email": "wouter.bon@inlumi.com",
+              "firstName": "Wouter",
+              "lastName": "Bon",
+              "personalizationAnswers": null,
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "g56KAd0SA1Gwj7Hw",
+                "userActivatedAt": 1768577448131
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-01-26",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "updatedAt": "2026-01-23T21:21:00.712Z",
+      "createdAt": "2026-01-23T21:21:00.712Z",
+      "role": "workflow:editor",
+      "workflowId": "5qkoAsY840zsJWV8",
+      "projectId": "zlzPi5phsz14Nfbn",
+      "project": {
+        "updatedAt": "2026-01-23T21:11:21.880Z",
+        "createdAt": "2026-01-23T21:11:21.880Z",
+        "id": "zlzPi5phsz14Nfbn",
+        "name": "Daan Stoeten <daan.stoeten@inlumi.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "e1cf0262-d2a6-4fbd-b75a-e88d2b692514",
+        "projectRelations": [
+          {
+            "updatedAt": "2026-01-23T21:11:21.880Z",
+            "createdAt": "2026-01-23T21:11:21.880Z",
+            "userId": "e1cf0262-d2a6-4fbd-b75a-e88d2b692514",
+            "projectId": "zlzPi5phsz14Nfbn",
+            "user": {
+              "updatedAt": "2026-01-26T14:20:04.265Z",
+              "createdAt": "2026-01-23T21:11:21.880Z",
+              "id": "e1cf0262-d2a6-4fbd-b75a-e88d2b692514",
+              "email": "daan.stoeten@inlumi.com",
+              "firstName": "Daan",
+              "lastName": "Stoeten",
+              "personalizationAnswers": null,
+              "settings": null,
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-01-26",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-01-23T21:19:51.252Z",
+    "createdAt": "2026-01-23T16:39:34.631Z",
+    "versionId": "cfd12660-18b2-414e-8ee6-6c74984eb18c",
+    "workflowId": "5qkoAsY840zsJWV8",
+    "nodes": [
+      {
+        "parameters": {
+          "jsCode": "// Check if this is an approval response or new command\nconst userInput = $input.first().json.chatInput;\nconst sessionId = $input.first().json.sessionId;\nconst inputLower = userInput.toLowerCase().trim();\n\nconst staticData = $getWorkflowStaticData('global');\nconst pendingCommands = staticData.pendingCommands || {};\nconst pendingCommand = pendingCommands[sessionId];\n\nconst isApproval = ['yes', 'y', 'approve', 'ok', 'execute', 'run', 'do it', 'proceed', 'confirm'].includes(inputLower);\nconst isRejection = ['no', 'n', 'cancel', 'abort', 'stop', 'reject', 'deny'].includes(inputLower);\n\nlet mode = 'new_command';\nlet commandToExecute = null;\n\nif (pendingCommand && isApproval) {\n  mode = 'execute';\n  commandToExecute = pendingCommand;\n  delete pendingCommands[sessionId];\n  staticData.pendingCommands = pendingCommands;\n} else if (pendingCommand && isRejection) {\n  mode = 'rejected';\n  delete pendingCommands[sessionId];\n  staticData.pendingCommands = pendingCommands;\n} else if (pendingCommand) {\n  delete pendingCommands[sessionId];\n  staticData.pendingCommands = pendingCommands;\n  mode = 'new_command';\n}\n\nreturn {\n  mode: mode,\n  userInput: userInput,\n  sessionId: sessionId,\n  pendingCommand: commandToExecute\n};"
+        },
+        "id": "check-state",
+        "name": "Check Session State",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          224,
+          304
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "is-execute",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals"
+                },
+                "leftValue": "={{ $json.mode }}",
+                "rightValue": "execute"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "route-execute",
+        "name": "Execute Approved?",
+        "type": "n8n-nodes-base.if",
+        "position": [
+          448,
+          208
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "is-rejected",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals"
+                },
+                "leftValue": "={{ $json.mode }}",
+                "rightValue": "rejected"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "route-rejected",
+        "name": "Was Rejected?",
+        "type": "n8n-nodes-base.if",
+        "position": [
+          448,
+          400
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "jsCode": "return { output: '❌ Command cancelled. What else would you like to do?' };"
+        },
+        "id": "rejected-response",
+        "name": "Rejection Response",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          672,
+          512
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "http://172.18.0.1:8000/chat ",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"prompt\": {{ JSON.stringify($('Check Session State').item.json.userInput) }},\n  \"system\": \"You are a FortiGate API command interpreter. Your job is to translate natural language requests into FortiGate REST API commands.\\n\\nThe FortiGate API base URL is: https://nlfmfw1a.epm-cloud.net\\n\\nCommon FortiGate API endpoints:\\n- GET /api/v2/cmdb/firewall/policy - List firewall policies\\n- GET /api/v2/cmdb/firewall/address - List address objects\\n- GET /api/v2/cmdb/firewall/service/custom - List service objects\\n- GET /api/v2/cmdb/system/interface - List interfaces\\n- GET /api/v2/cmdb/router/static - List static routes\\n- GET /api/v2/cmdb/firewall/vip - List virtual IPs\\n- GET /api/v2/cmdb/user/local - List local users\\n- GET /api/v2/cmdb/vpn.ipsec/phase1-interface - List VPN phase1\\n- GET /api/v2/cmdb/vpn.ipsec/phase2-interface - List VPN phase2\\n- GET /api/v2/monitor/system/status - System status\\n- GET /api/v2/monitor/router/ipv4 - Routing table\\n- GET /api/v2/monitor/system/ha-peer - HA status\\n- GET /api/v2/monitor/system/interface - Interface statistics\\n- GET /api/v2/monitor/firewall/session - Active sessions\\n- GET /api/v2/monitor/system/resource/usage - Resource usage\\n- GET /api/v2/cmdb/system/admin - List administrators\\n- GET /api/v2/cmdb/system/dns - DNS settings\\n- GET /api/v2/cmdb/log/setting - Logging settings\\n\\nFor modifications:\\n- POST /api/v2/cmdb/firewall/policy - Create policy\\n- PUT /api/v2/cmdb/firewall/policy/{id} - Update policy\\n- DELETE /api/v2/cmdb/firewall/policy/{id} - Delete policy\\n\\nYou MUST respond ONLY with a valid JSON object in this exact format:\\n{\\n  \\\"understood\\\": true/false,\\n  \\\"method\\\": \\\"GET/POST/PUT/DELETE\\\",\\n  \\\"endpoint\\\": \\\"/api/v2/...\\\",\\n  \\\"description\\\": \\\"Human-readable description of what this command will do\\\",\\n  \\\"risk_level\\\": \\\"low/medium/high\\\",\\n  \\\"body\\\": null or JSON object for POST/PUT requests\\n}\\n\\nIf you cannot understand the request or it's not related to FortiGate, set understood=false and explain in description.\\n\\nRisk levels:\\n- low: Read-only operations (GET requests)\\n- medium: Create/modify non-critical settings\\n- high: Delete operations, modify firewall policies, change security settings\\n\\nRespond ONLY with the JSON object, no other text.\",\n  \"max_tokens\": 1024\n}",
+          "options": {
+            "timeout": 120000
+          }
+        },
+        "id": "call-claude-http",
+        "name": "Call Claude CLI (HTTP)",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [
+          672,
+          304
+        ],
+        "typeVersion": 4.2
+      },
+      {
+        "parameters": {
+          "jsCode": "// Parse Claude HTTP response and create approval request\nconst response = $input.first().json;\nconst sessionId = $('Check Session State').item.json.sessionId;\nconst userInput = $('Check Session State').item.json.userInput;\n\nif (response.error) {\n  return {\n    output: `❌ Claude CLI Error: ${response.error}\\n\\nMake sure the Claude HTTP wrapper is running:\\n\\`\\`\\`\\n./start-claude-wrapper.sh\\n\\`\\`\\``\n  };\n}\n\nconst cliOutput = response.output || '';\n\nlet parsed;\ntry {\n  const jsonMatch = cliOutput.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    parsed = JSON.parse(jsonMatch[0]);\n  } else {\n    throw new Error('No JSON found in response');\n  }\n} catch (e) {\n  return {\n    output: `❌ I couldn't interpret that command. Please try rephrasing.\\n\\nClaude output: ${cliOutput}\\n\\n**Examples:**\\n- \"Show firewall policies\"\\n- \"List network interfaces\"\\n- \"Get system status\"`\n  };\n}\n\nif (!parsed.understood) {\n  return {\n    output: `❌ I couldn't understand that request.\\n\\n${parsed.description || 'Please try a different command.'}\\n\\n**Examples:**\\n- \"Show firewall policies\"\\n- \"List network interfaces\"\\n- \"Get system status\"`\n  };\n}\n\n// Store pending command\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.pendingCommands) {\n  staticData.pendingCommands = {};\n}\n\nconst command = {\n  method: parsed.method,\n  endpoint: parsed.endpoint,\n  description: parsed.description,\n  risk_level: parsed.risk_level,\n  body: parsed.body,\n  originalRequest: userInput,\n  timestamp: new Date().toISOString()\n};\n\nstaticData.pendingCommands[sessionId] = command;\n\nconst riskEmoji = {\n  'low': '🟢',\n  'medium': '🟡', \n  'high': '🔴'\n};\n\nlet output = `**📋 Command Interpretation** *(via local Claude CLI)*\\n\\n`;\noutput += `**Your request:** ${userInput}\\n\\n`;\noutput += `**API Command:**\\n`;\noutput += `\\`\\`\\`\\n${parsed.method} https://nlfmfw1a.epm-cloud.net${parsed.endpoint}\\n\\`\\`\\`\\n\\n`;\n\nif (parsed.body) {\n  output += `**Request Body:**\\n\\`\\`\\`json\\n${JSON.stringify(parsed.body, null, 2)}\\n\\`\\`\\`\\n\\n`;\n}\n\noutput += `**Description:** ${parsed.description}\\n\\n`;\noutput += `**Risk Level:** ${riskEmoji[parsed.risk_level] || '⚪'} ${parsed.risk_level?.toUpperCase() || 'UNKNOWN'}\\n\\n`;\noutput += `---\\n\\n`;\noutput += `⚠️ **Do you want to execute this command?**\\n\\n`;\noutput += `Reply **yes** to execute or **no** to cancel.`;\n\nreturn { output: output };"
+        },
+        "id": "format-approval",
+        "name": "Format Approval Request",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          880,
+          304
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "method": "={{ $('Check Session State').item.json.pendingCommand.method }}",
+          "url": "=https://nlfmfw1a.epm-cloud.net{{ $('Check Session State').item.json.pendingCommand.endpoint }}",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $('Check Session State').item.json.pendingCommand.body ? JSON.stringify($('Check Session State').item.json.pendingCommand.body) : '{}' }}",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "json"
+              }
+            },
+            "timeout": 30000
+          }
+        },
+        "id": "execute-api",
+        "name": "Execute FortiGate API",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [
+          672,
+          80
+        ],
+        "typeVersion": 4.2,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "",
+            "name": ""
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Format API response\nconst response = $input.first().json;\nconst command = $('Check Session State').item.json.pendingCommand;\n\nlet output = `✅ **Command Executed Successfully**\\n\\n`;\noutput += `**Endpoint:** \\`${command.method} ${command.endpoint}\\`\\n\\n`;\noutput += `**Response:**\\n\\`\\`\\`json\\n`;\n\nconst responseStr = JSON.stringify(response, null, 2);\nif (responseStr.length > 3000) {\n  output += responseStr.substring(0, 3000) + '\\n... (truncated)';\n} else {\n  output += responseStr;\n}\n\noutput += `\\n\\`\\`\\`\\n\\n`;\noutput += `What else would you like to do?`;\n\nreturn { output: output };"
+        },
+        "id": "format-response",
+        "name": "Format API Response",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          912,
+          80
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "jsCode": "// Handle API errors\nconst error = $input.first().json;\nconst command = $('Check Session State').item.json.pendingCommand;\n\nlet output = `❌ **Command Failed**\\n\\n`;\noutput += `**Endpoint:** \\`${command.method} ${command.endpoint}\\`\\n\\n`;\noutput += `**Error:**\\n\\`\\`\\`\\n${JSON.stringify(error, null, 2)}\\n\\`\\`\\`\\n\\n`;\noutput += `Please check:\\n`;\noutput += `- API credentials are configured\\n`;\noutput += `- FortiGate is accessible\\n`;\noutput += `- The endpoint exists\\n\\n`;\noutput += `What else would you like to try?`;\n\nreturn { output: output };"
+        },
+        "id": "format-error",
+        "name": "Format Error Response",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          912,
+          -64
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "path": "claude-cli",
+          "responseMode": "lastNode",
+          "options": {}
+        },
+        "id": "webhook-trigger",
+        "name": "Webhook Trigger",
+        "type": "n8n-nodes-base.webhook",
+        "position": [
+          0,
+          512
+        ],
+        "webhookId": "claude-cli-webhook",
+        "typeVersion": 2
+      }
+    ],
+    "connections": {
+      "Was Rejected?": {
+        "main": [
+          [
+            {
+              "node": "Rejection Response",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Call Claude CLI (HTTP)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook Trigger": {
+        "main": [
+          [
+            {
+              "node": "Check Session State",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Execute Approved?": {
+        "main": [
+          [
+            {
+              "node": "Execute FortiGate API",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Was Rejected?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check Session State": {
+        "main": [
+          [
+            {
+              "node": "Execute Approved?",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Was Rejected?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Execute FortiGate API": {
+        "main": [
+          [
+            {
+              "node": "Format API Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Call Claude CLI (HTTP)": {
+        "main": [
+          [
+            {
+              "node": "Format Approval Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Wouter Bon",
+    "name": "Version cfd12660",
+    "description": "Fortigate CLI\n",
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-01-23T21:19:51.250Z",
+        "id": 36,
+        "workflowId": "5qkoAsY840zsJWV8",
+        "versionId": "cfd12660-18b2-414e-8ee6-6c74984eb18c",
+        "event": "activated",
+        "userId": "c08f4be4-c712-4d36-a5d7-ba76e5de4146"
+      },
+      {
+        "createdAt": "2026-01-23T21:20:11.894Z",
+        "id": 37,
+        "workflowId": "5qkoAsY840zsJWV8",
+        "versionId": "cfd12660-18b2-414e-8ee6-6c74984eb18c",
+        "event": "activated",
+        "userId": "c08f4be4-c712-4d36-a5d7-ba76e5de4146"
+      }
+    ]
+  }
+}

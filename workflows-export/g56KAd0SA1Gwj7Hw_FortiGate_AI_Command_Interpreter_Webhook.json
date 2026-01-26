@@ -1,0 +1,582 @@
+{
+  "updatedAt": "2026-01-23T15:46:10.687Z",
+  "createdAt": "2026-01-16T15:21:35.585Z",
+  "id": "g56KAd0SA1Gwj7Hw",
+  "name": "FortiGate AI Command Interpreter (Webhook)",
+  "description": "Stateless - use execute:true to run commands",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        0,
+        304
+      ],
+      "webhookId": "fortigate-ai-webhook",
+      "parameters": {
+        "path": "fortigate-ai",
+        "options": {},
+        "httpMethod": "POST",
+        "responseMode": "lastNode"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "parse",
+      "name": "Parse",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        224,
+        304
+      ],
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst message = body.message || body.prompt || '';\nconst execute = body.execute === true || body.execute === 'true';\n\nreturn { message, execute };"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "claude",
+      "name": "Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        448,
+        304
+      ],
+      "parameters": {
+        "url": "http://172.18.0.1:8000/chat",
+        "method": "POST",
+        "options": {
+          "timeout": 120000
+        },
+        "jsonBody": "={\n  \"prompt\": {{ JSON.stringify($json.message + \"\\n\\nRespond with a brief, helpful answer.\") }}\n}",
+        "sendBody": true,
+        "sendHeaders": true,
+        "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "format",
+      "name": "Format",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        672,
+        304
+      ],
+      "parameters": {
+        "jsCode": "const resp = $input.first().json;\nconst execute = $('Parse').item.json.execute;\n\nif (resp.error) {\n  return { success: false, error: resp.error };\n}\n\nconst out = resp.output || '';\nlet parsed;\ntry {\n  const m = out.match(/\\{[\\s\\S]*\\}/);\n  parsed = m ? JSON.parse(m[0]) : null;\n  if (!parsed) throw new Error('No JSON');\n} catch(e) {\n  return { success: false, error: 'Could not parse response', raw: out.substring(0,500) };\n}\n\nif (!parsed.understood) {\n  return { success: false, error: 'Not understood', description: parsed.description };\n}\n\nconst command = {\n  method: parsed.method,\n  endpoint: parsed.endpoint,\n  url: `https://nlfmfw1a.epm-cloud.net${parsed.endpoint}`,\n  description: parsed.description,\n  risk_level: parsed.risk_level,\n  body: parsed.body\n};\n\nreturn {\n  success: true,\n  command,\n  execute,\n  willExecute: execute\n};"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "check-exec",
+      "name": "Execute?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        880,
+        304
+      ],
+      "parameters": {
+        "options": {},
+        "conditions": {
+          "options": {
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "exec",
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.willExecute }}",
+              "rightValue": "={{ true }}"
+            }
+          ]
+        }
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "no-exec",
+      "name": "Return Command",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1104,
+        400
+      ],
+      "parameters": {
+        "jsCode": "const data = $('Format').item.json;\nreturn {\n  status: 'interpreted',\n  message: \"Add 'execute': true to your request to run this command\",\n  command: data.command\n};"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "api",
+      "name": "FortiGate API",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1104,
+        208
+      ],
+      "parameters": {
+        "url": "={{ $('Format').item.json.command.url }}?access_token=fQncytQ507HbgfQw906hbzGf9shbz7",
+        "method": "={{ $('Format').item.json.command.method }}",
+        "options": {
+          "timeout": 30000
+        },
+        "jsonBody": "={{ $('Format').item.json.command.body ? JSON.stringify($('Format').item.json.command.body) : '{}' }}",
+        "sendBody": true,
+        "specifyBody": "json"
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "exec-resp",
+      "name": "Exec Response",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1328,
+        208
+      ],
+      "parameters": {
+        "jsCode": "const resp = $input.first().json;\nconst cmd = $('Format').item.json.command;\nreturn {\n  status: 'executed',\n  command: cmd,\n  response: resp\n};"
+      },
+      "typeVersion": 2
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse": {
+      "main": [
+        [
+          {
+            "node": "Claude",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude": {
+      "main": [
+        [
+          {
+            "node": "Format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format": {
+      "main": [
+        [
+          {
+            "node": "Execute?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute?": {
+      "main": [
+        [
+          {
+            "node": "FortiGate API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FortiGate API": {
+      "main": [
+        [
+          {
+            "node": "Exec Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "abb35216-8f78-4b0e-97c2-6d5b12f82934",
+  "activeVersionId": "b53a1d48-4e36-4010-a94d-824d905db87a",
+  "versionCounter": 55,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-01-16T15:21:35.585Z",
+      "createdAt": "2026-01-16T15:21:35.585Z",
+      "role": "workflow:owner",
+      "workflowId": "g56KAd0SA1Gwj7Hw",
+      "projectId": "8YNjh86Z6YtR2Bp7",
+      "project": {
+        "updatedAt": "2026-01-09T13:22:01.384Z",
+        "createdAt": "2026-01-09T13:14:22.358Z",
+        "id": "8YNjh86Z6YtR2Bp7",
+        "name": "Wouter Bon <wouter.bon@inlumi.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "c08f4be4-c712-4d36-a5d7-ba76e5de4146",
+        "projectRelations": [
+          {
+            "updatedAt": "2026-01-09T13:14:22.358Z",
+            "createdAt": "2026-01-09T13:14:22.358Z",
+            "userId": "c08f4be4-c712-4d36-a5d7-ba76e5de4146",
+            "projectId": "8YNjh86Z6YtR2Bp7",
+            "user": {
+              "updatedAt": "2026-01-26T14:20:21.357Z",
+              "createdAt": "2026-01-09T13:14:21.075Z",
+              "id": "c08f4be4-c712-4d36-a5d7-ba76e5de4146",
+              "email": "wouter.bon@inlumi.com",
+              "firstName": "Wouter",
+              "lastName": "Bon",
+              "personalizationAnswers": null,
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "g56KAd0SA1Gwj7Hw",
+                "userActivatedAt": 1768577448131
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-01-26",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "updatedAt": "2026-01-23T21:22:22.626Z",
+      "createdAt": "2026-01-23T21:22:22.626Z",
+      "role": "workflow:editor",
+      "workflowId": "g56KAd0SA1Gwj7Hw",
+      "projectId": "zlzPi5phsz14Nfbn",
+      "project": {
+        "updatedAt": "2026-01-23T21:11:21.880Z",
+        "createdAt": "2026-01-23T21:11:21.880Z",
+        "id": "zlzPi5phsz14Nfbn",
+        "name": "Daan Stoeten <daan.stoeten@inlumi.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "e1cf0262-d2a6-4fbd-b75a-e88d2b692514",
+        "projectRelations": [
+          {
+            "updatedAt": "2026-01-23T21:11:21.880Z",
+            "createdAt": "2026-01-23T21:11:21.880Z",
+            "userId": "e1cf0262-d2a6-4fbd-b75a-e88d2b692514",
+            "projectId": "zlzPi5phsz14Nfbn",
+            "user": {
+              "updatedAt": "2026-01-26T14:20:04.265Z",
+              "createdAt": "2026-01-23T21:11:21.880Z",
+              "id": "e1cf0262-d2a6-4fbd-b75a-e88d2b692514",
+              "email": "daan.stoeten@inlumi.com",
+              "firstName": "Daan",
+              "lastName": "Stoeten",
+              "personalizationAnswers": null,
+              "settings": null,
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-01-26",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-01-16T15:21:35.585Z",
+    "createdAt": "2026-01-16T15:21:35.585Z",
+    "versionId": "b53a1d48-4e36-4010-a94d-824d905db87a",
+    "workflowId": "g56KAd0SA1Gwj7Hw",
+    "nodes": [
+      {
+        "id": "webhook",
+        "name": "Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "position": [
+          0,
+          304
+        ],
+        "webhookId": "fortigate-ai-webhook",
+        "parameters": {
+          "path": "fortigate-ai",
+          "options": {},
+          "httpMethod": "POST",
+          "responseMode": "lastNode"
+        },
+        "typeVersion": 2
+      },
+      {
+        "id": "parse",
+        "name": "Parse",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          224,
+          304
+        ],
+        "parameters": {
+          "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst message = body.message || body.prompt || '';\nconst execute = body.execute === true || body.execute === 'true';\n\nreturn { message, execute };"
+        },
+        "typeVersion": 2
+      },
+      {
+        "id": "claude",
+        "name": "Claude",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [
+          448,
+          304
+        ],
+        "parameters": {
+          "url": "http://172.18.0.1:8000/chat",
+          "method": "POST",
+          "options": {
+            "timeout": 120000
+          },
+          "jsonBody": "={\n  \"prompt\": {{ JSON.stringify($json.message + \"\\n\\nRespond with a brief, helpful answer.\") }}\n}",
+          "sendBody": true,
+          "sendHeaders": true,
+          "specifyBody": "json",
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        },
+        "typeVersion": 4.2
+      },
+      {
+        "id": "format",
+        "name": "Format",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          672,
+          304
+        ],
+        "parameters": {
+          "jsCode": "const resp = $input.first().json;\nconst execute = $('Parse').item.json.execute;\n\nif (resp.error) {\n  return { success: false, error: resp.error };\n}\n\nconst out = resp.output || '';\nlet parsed;\ntry {\n  const m = out.match(/\\{[\\s\\S]*\\}/);\n  parsed = m ? JSON.parse(m[0]) : null;\n  if (!parsed) throw new Error('No JSON');\n} catch(e) {\n  return { success: false, error: 'Could not parse response', raw: out.substring(0,500) };\n}\n\nif (!parsed.understood) {\n  return { success: false, error: 'Not understood', description: parsed.description };\n}\n\nconst command = {\n  method: parsed.method,\n  endpoint: parsed.endpoint,\n  url: `https://nlfmfw1a.epm-cloud.net${parsed.endpoint}`,\n  description: parsed.description,\n  risk_level: parsed.risk_level,\n  body: parsed.body\n};\n\nreturn {\n  success: true,\n  command,\n  execute,\n  willExecute: execute\n};"
+        },
+        "typeVersion": 2
+      },
+      {
+        "id": "check-exec",
+        "name": "Execute?",
+        "type": "n8n-nodes-base.if",
+        "position": [
+          880,
+          304
+        ],
+        "parameters": {
+          "options": {},
+          "conditions": {
+            "options": {
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "exec",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "equals"
+                },
+                "leftValue": "={{ $json.willExecute }}",
+                "rightValue": "={{ true }}"
+              }
+            ]
+          }
+        },
+        "typeVersion": 2
+      },
+      {
+        "id": "no-exec",
+        "name": "Return Command",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          1104,
+          400
+        ],
+        "parameters": {
+          "jsCode": "const data = $('Format').item.json;\nreturn {\n  status: 'interpreted',\n  message: \"Add 'execute': true to your request to run this command\",\n  command: data.command\n};"
+        },
+        "typeVersion": 2
+      },
+      {
+        "id": "api",
+        "name": "FortiGate API",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [
+          1104,
+          208
+        ],
+        "parameters": {
+          "url": "={{ $('Format').item.json.command.url }}?access_token=fQncytQ507HbgfQw906hbzGf9shbz7",
+          "method": "={{ $('Format').item.json.command.method }}",
+          "options": {
+            "timeout": 30000
+          },
+          "jsonBody": "={{ $('Format').item.json.command.body ? JSON.stringify($('Format').item.json.command.body) : '{}' }}",
+          "sendBody": true,
+          "specifyBody": "json"
+        },
+        "typeVersion": 4.2
+      },
+      {
+        "id": "exec-resp",
+        "name": "Exec Response",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          1328,
+          208
+        ],
+        "parameters": {
+          "jsCode": "const resp = $input.first().json;\nconst cmd = $('Format').item.json.command;\nreturn {\n  status: 'executed',\n  command: cmd,\n  response: resp\n};"
+        },
+        "typeVersion": 2
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Parse",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse": {
+        "main": [
+          [
+            {
+              "node": "Claude",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Claude": {
+        "main": [
+          [
+            {
+              "node": "Format",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Format": {
+        "main": [
+          [
+            {
+              "node": "Execute?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Execute?": {
+        "main": [
+          [
+            {
+              "node": "FortiGate API",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Return Command",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "FortiGate API": {
+        "main": [
+          [
+            {
+              "node": "Exec Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "import",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-01-17T01:41:29.081Z",
+        "id": 33,
+        "workflowId": "g56KAd0SA1Gwj7Hw",
+        "versionId": "b53a1d48-4e36-4010-a94d-824d905db87a",
+        "event": "activated",
+        "userId": "c08f4be4-c712-4d36-a5d7-ba76e5de4146"
+      }
+    ]
+  }
+}
