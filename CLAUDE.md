@@ -93,6 +93,7 @@ Azure AD App Proxy (X-MS-CLIENT-PRINCIPAL-NAME header)
 - **n8n Editor:** https://n8nsso.inlumi.education
 - **Traefik Dashboard:** http://localhost:8080
 - **REST API:** https://n8nsso.inlumi.education/api/v1/
+- **API Docs:** https://n8nsso.inlumi.education/api/v1/docs/ (no auth required)
 - **Webhooks:** https://n8nsso.inlumi.education/webhook/
 
 ## SSO Authentication Flow
