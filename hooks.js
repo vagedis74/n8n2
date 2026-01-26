@@ -108,6 +108,18 @@ module.exports = {
                             return next();
                         }
 
+                        // Debug: Log all incoming headers (remove in production)
+                        if (process.env.N8N_SSO_DEBUG === 'true') {
+                            const relevantHeaders = {};
+                            for (const [key, value] of Object.entries(req.headers)) {
+                                if (key.startsWith('x-') || key.includes('forward') || key.includes('auth')) {
+                                    relevantHeaders[key] = value;
+                                }
+                            }
+                            console.log(`[SSO DEBUG] Path: ${path}`);
+                            console.log(`[SSO DEBUG] Headers:`, JSON.stringify(relevantHeaders, null, 2));
+                        }
+
                         // Get user info from trusted headers
                         const email = req.headers[HEADERS.email];
                         const upn = req.headers[HEADERS.upn];
