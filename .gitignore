@@ -1,7 +1,31 @@
+# Environment and secrets
 .env
+.env.*
+!.env.example
 *.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.json
+*secret*
+*credential*
+
+# Certificates
 traefik/certs/
+
+# Logs
 *.log
+
+# Local files
 local-files/
+
+# Editor files
 *.swp
 *~
+.vscode/
+.idea/
+
+# Temp files
+*.tmp
+*.bak
