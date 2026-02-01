@@ -38,27 +38,28 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build image with provenance
+      - name: Build and push image
         uses: docker/build-push-action@v6
         with:
           context: .
-          load: true
+          push: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+          load: ${{ github.event_name == 'pull_request' || github.ref != 'refs/heads/main' }}
           tags: ${{ env.IMAGE_NAME }}
-          provenance: mode=max
+          provenance: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && 'mode=max' || 'false' }}
 
       - name: Docker Scout - Quickview
         uses: docker/scout-action@v1
         continue-on-error: true
         with:
           command: quickview
-          image: local://${{ env.IMAGE_NAME }}
+          image: ${{ env.IMAGE_NAME }}
           organization: vagedis74
 
       - name: Docker Scout - CVEs
         uses: docker/scout-action@v1
         with:
           command: cves
-          image: local://${{ env.IMAGE_NAME }}
+          image: ${{ env.IMAGE_NAME }}
           organization: vagedis74
           only-severities: critical,high
           only-fixed: true
@@ -71,15 +72,14 @@ jobs:
         continue-on-error: true
         with:
           command: compare
-          image: local://${{ env.IMAGE_NAME }}
+          image: ${{ env.IMAGE_NAME }}
           to-env: production
           organization: vagedis74
           only-severities: critical,high
 
-      - name: Push image and record to environment
+      - name: Record to Scout environment
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         run: |
-          docker push ${{ env.IMAGE_NAME }}
           docker scout environment production ${{ env.IMAGE_NAME }} --org vagedis74 --platform linux/amd64 || true
 
       - name: Upload SARIF results
