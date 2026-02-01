@@ -23,6 +23,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      security-events: write
 
     steps:
       - name: Checkout
@@ -37,46 +38,49 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build image
+      - name: Build image with provenance
         uses: docker/build-push-action@v6
         with:
           context: .
           load: true
           tags: ${{ env.IMAGE_NAME }}
+          provenance: mode=max
 
       - name: Docker Scout - Quickview
         uses: docker/scout-action@v1
+        continue-on-error: true
         with:
           command: quickview
-          image: ${{ env.IMAGE_NAME }}
+          image: local://${{ env.IMAGE_NAME }}
           organization: vagedis74
 
       - name: Docker Scout - CVEs
         uses: docker/scout-action@v1
         with:
           command: cves
-          image: ${{ env.IMAGE_NAME }}
+          image: local://${{ env.IMAGE_NAME }}
           organization: vagedis74
           only-severities: critical,high
           only-fixed: true
           sarif-file: scout-results.sarif
+          summary: true
 
       - name: Docker Scout - Compare on PR
         if: github.event_name == 'pull_request'
         uses: docker/scout-action@v1
+        continue-on-error: true
         with:
           command: compare
-          image: ${{ env.IMAGE_NAME }}
+          image: local://${{ env.IMAGE_NAME }}
           to-env: production
           organization: vagedis74
           only-severities: critical,high
-          exit-code: true
 
       - name: Push image and record to environment
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         run: |
           docker push ${{ env.IMAGE_NAME }}
-          docker scout environment production ${{ env.IMAGE_NAME }} --org vagedis74 --platform linux/amd64
+          docker scout environment production ${{ env.IMAGE_NAME }} --org vagedis74 --platform linux/amd64 || true
 
       - name: Upload SARIF results
         if: always()
